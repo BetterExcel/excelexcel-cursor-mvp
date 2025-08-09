@@ -554,6 +554,35 @@ elif st.session_state.active_ribbon_tab == "Review":
 
 # Formula Bar
 st.markdown("### 🧮 Formula Bar")
+
+# Add helpful instructions
+with st.expander("📖 Formula Help", expanded=False):
+    st.markdown("""
+    **How to use formulas:**
+    
+    **Basic Usage:**
+    1. Enter a cell reference (e.g., A1, B2, C10)
+    2. Enter a formula starting with `=`
+    3. Click Apply to execute
+    
+    **Supported Functions:**
+    - **Math:** `=A1+B1`, `=A1*B1/2`, `=A1-5`
+    - **Sum:** `=SUM(A1:A5)` - adds all values in range
+    - **Average:** `=AVERAGE(A1:A5)` - calculates mean
+    - **Count:** `=COUNT(A1:A5)` - counts non-empty cells
+    - **Min/Max:** `=MIN(A1:A5)`, `=MAX(A1:A5)`
+    - **Statistics:** `=STDEV(A1:A5)`, `=MEDIAN(A1:A5)`
+    - **Date:** `=TODAY()`, `=NOW()`
+    - **Text:** `=CONCATENATE(A1,B1)`, `=LEN(A1)`
+    
+    **Examples:**
+    - `=SUM(A1:A10)` - Sum of A1 through A10
+    - `=A1*1.1` - Increase A1 by 10%
+    - `=AVERAGE(B1:B5)*2` - Double the average
+    - `=TODAY()` - Current date
+    - `=CONCATENATE(A1," ",B1)` - Join A1 and B1 with space
+    """)
+
 formula_cols = st.columns([0.2, 0.5, 0.2, 0.1])
 with formula_cols[0]:
     target_cell = st.text_input("📍 Cell (e.g., A1)", key="cell_addr", placeholder="A1")
@@ -561,7 +590,7 @@ with formula_cols[1]:
     formula = st.text_input("📝 Formula", key="formula_text", 
                           placeholder="=SUM(A1:A10) or =TODAY() or =CONCATENATE(A1,B1)")
 with formula_cols[2]:
-    apply_col = st.checkbox("Apply to column")
+    apply_col = st.checkbox("Apply to column", help="Apply formula to entire column")
 with formula_cols[3]:
     if st.button("⚡ Apply"):
         if target_cell and formula:
@@ -569,18 +598,32 @@ with formula_cols[3]:
             try:
                 if str(formula).startswith("="):
                     if apply_col:
+                        # Apply to entire column
                         col_letter = ''.join([c for c in target_cell if c.isalpha()])
-                        for r in range(len(df)):
-                            val = evaluate_formula(formula, df, current_row=r)
-                            if col_letter in df.columns:
-                                df.at[r, col_letter] = val
+                        if col_letter in df.columns:
+                            success_count = 0
+                            for r in range(len(df)):
+                                try:
+                                    val = evaluate_formula(formula, df, current_row=r)
+                                    df.at[r, col_letter] = val
+                                    success_count += 1
+                                except Exception as e:
+                                    # Skip rows with errors but continue
+                                    continue
+                            st.success(f"✅ Formula applied to {success_count} rows in column {col_letter}")
+                        else:
+                            st.error(f"❌ Column {col_letter} not found")
                     else:
+                        # Apply to single cell
                         val = evaluate_formula(formula, df)
                         from app.services.workbook import set_cell_by_a1
                         set_cell_by_a1(df, target_cell, val)
+                        st.success(f"✅ Formula applied to {target_cell}: {val}")
                 else:
+                    # Direct value (not a formula)
                     from app.services.workbook import set_cell_by_a1
                     set_cell_by_a1(df, target_cell, formula)
+                    st.success(f"✅ Value set in {target_cell}: {formula}")
                 
                 set_sheet(st.session_state.workbook, st.session_state.current_sheet, df)
                 
@@ -592,12 +635,49 @@ with formula_cols[3]:
                     'type': 'user'
                 })
                 
-                st.success("✅ Formula applied successfully!")
                 st.rerun()
             except Exception as e:
-                st.error(f"❌ Error: {e}")
+                st.error(f"❌ Error applying formula: {e}")
+                st.info("💡 Check the formula syntax and cell references")
 
 st.divider()
+
+# Quick formula test section
+with st.expander("🧪 Quick Formula Test", expanded=False):
+    st.markdown("**Try some sample data and formulas:**")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("📊 Add Sample Data"):
+            df = get_sheet(st.session_state.workbook, st.session_state.current_sheet)
+            # Add some sample data for testing
+            sample_data = {
+                'A': [10, 20, 30, 40, 50],
+                'B': [5, 15, 25, 35, 45],
+                'C': ['Item1', 'Item2', 'Item3', 'Item4', 'Item5'],
+                'D': [None, None, None, None, None],  # For formula results
+                'E': [None, None, None, None, None]   # For more formulas
+            }
+            
+            for col, values in sample_data.items():
+                if col in df.columns:
+                    for i, val in enumerate(values):
+                        if i < len(df):
+                            df.at[i, col] = val
+            
+            set_sheet(st.session_state.workbook, st.session_state.current_sheet, df)
+            st.success("✅ Sample data added!")
+            st.rerun()
+    
+    with col2:
+        st.markdown("""
+        **Try these formulas:**
+        - `=A1+B1` in cell D1
+        - `=SUM(A1:A5)` in cell D2  
+        - `=AVERAGE(A1:A5)` in cell D3
+        - `=CONCATENATE(C1," Value: ",A1)` in cell E1
+        - `=TODAY()` in cell E2
+        """)
 
 # Main spreadsheet display
 st.markdown(f"### 📊 Sheet: {st.session_state.current_sheet}")
@@ -607,11 +687,21 @@ base_df = get_sheet(st.session_state.workbook, st.session_state.current_sheet)
 show_df = st.session_state.get("filtered_df", base_df)
 
 # Add row and column indicators (simplified)
+st.caption("💡 **Tip:** Click on any cell to edit directly. Changes save automatically when you press Enter or click elsewhere.")
+
 edited = st.data_editor(
     show_df, 
     num_rows="dynamic", 
     use_container_width=True,
-    key="main_editor"
+    key="main_editor",
+    hide_index=False,
+    column_config={
+        # Make all columns editable
+        col: st.column_config.TextColumn(
+            help=f"Column {col}",
+            max_chars=1000,
+        ) for col in show_df.columns
+    }
 )
 
 # Track changes and mark as user operations
@@ -625,6 +715,9 @@ if show_df is base_df and not edited.equals(base_df):
         'operation': "Manual data edit",
         'type': 'user'
     })
+    
+    # Force refresh to show changes immediately
+    st.rerun()
 
 # Chart builder section
 if st.session_state.get("show_chart_builder", False):
