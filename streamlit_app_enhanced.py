@@ -24,96 +24,132 @@ from app.services.workbook import (
     ensure_sheet,
 )
 from app.ui.formula import evaluate_formula
-from app.agent.agent import run_agent
+from app.agent.agent import run_agent, probe_models
 import app.charts as charts
 
 st.set_page_config(page_title="Excel‑Cursor MVP - Enhanced", layout="wide", initial_sidebar_state="expanded")
 
-# Custom CSS for Excel-like styling
-st.markdown("""
+# Custom CSS for Excel-like styling with theme support
+st.markdown(
+    """
 <style>
-/* Ribbon-style toolbar */
-.ribbon-container {
-    background: linear-gradient(to bottom, #f8f9fa, #e9ecef);
-    border-bottom: 1px solid #dee2e6;
-    padding: 10px;
-    margin-bottom: 20px;
+/* Default light theme variables */
+:root {
+  --xc-surface: #ffffff;
+  --xc-surface-2: #f6f8fa;
+  --xc-text: #111827;
+  --xc-border: rgba(0,0,0,0.12);
+  --xc-accent: #0066cc;
+  --xc-success: #28a745;
+  --xc-warn: #ffc107;
 }
 
-.ribbon-tab {
-    display: inline-block;
-    padding: 8px 16px;
-    margin-right: 5px;
-    background: #ffffff;
-    border: 1px solid #dee2e6;
-    border-radius: 4px 4px 0 0;
-    cursor: pointer;
-    font-weight: 500;
+/* Dark theme variables - auto detect */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --xc-surface: #0e1117;
+    --xc-surface-2: #161b22;
+    --xc-text: #e6edf3;
+    --xc-border: rgba(255,255,255,0.18);
+  }
 }
 
-.ribbon-tab.active {
-    background: #0066cc;
-    color: white;
-    border-bottom: 1px solid #0066cc;
+/* Fix Streamlit button styling issues */
+.stButton > button {
+  background-color: var(--xc-surface) !important;
+  color: var(--xc-text) !important;
+  border: 1px solid var(--xc-border) !important;
+  border-radius: 4px !important;
+  padding: 0.5rem 1rem !important;
+  font-weight: 500 !important;
+  min-height: 2.5rem !important;
+  width: 100% !important;
 }
 
-/* Excel-like grid styling */
-.stDataFrame {
-    border: 1px solid #d0d7de;
+.stButton > button:hover {
+  background-color: var(--xc-surface-2) !important;
+  border-color: var(--xc-accent) !important;
 }
 
-/* Chat history styling */
-.chat-container {
-    max-height: 400px;
-    overflow-y: auto;
-    border: 1px solid #e1e4e8;
-    border-radius: 6px;
-    padding: 10px;
-    margin-bottom: 10px;
+/* Fix selectbox styling */
+.stSelectbox > div > div > div {
+  background-color: var(--xc-surface) !important;
+  color: var(--xc-text) !important;
+  border: 1px solid var(--xc-border) !important;
 }
 
-.user-message {
-    background: #f6f8fa;
-    padding: 8px;
-    border-radius: 6px;
-    margin: 5px 0;
-    border-left: 3px solid #0066cc;
+/* Fix text input styling */
+.stTextInput > div > div > input {
+  background-color: var(--xc-surface) !important;
+  color: var(--xc-text) !important;
+  border: 1px solid var(--xc-border) !important;
 }
 
-.assistant-message {
-    background: #fff;
-    padding: 8px;
-    border-radius: 6px;
-    margin: 5px 0;
-    border-left: 3px solid #28a745;
+/* Fix file uploader styling */
+.stFileUploader > div > div {
+  background-color: var(--xc-surface) !important;
+  color: var(--xc-text) !important;
+  border: 1px solid var(--xc-border) !important;
 }
 
-.ai-operation {
-    background: #fff3cd;
-    padding: 5px 8px;
-    border-radius: 4px;
-    margin: 2px 0;
-    border-left: 3px solid #ffc107;
-    font-size: 0.9em;
+/***** Components *****/
+.ribbon-container { 
+  background: var(--xc-surface-2); 
+  border-bottom: 1px solid var(--xc-border); 
+  padding: 10px; 
+  margin-bottom: 20px; 
 }
 
-/* Status indicators */
-.status-working {
-    color: #ffc107;
-    font-weight: bold;
+.stDataFrame { 
+  border: 1px solid var(--xc-border); 
 }
 
-.status-success {
-    color: #28a745;
-    font-weight: bold;
+.chat-container { 
+  max-height: 400px; 
+  overflow-y: auto; 
+  border: 1px solid var(--xc-border); 
+  border-radius: 6px; 
+  padding: 10px; 
+  margin-bottom: 10px; 
+  background: var(--xc-surface-2); 
+  color: var(--xc-text); 
 }
 
-.status-error {
-    color: #dc3545;
-    font-weight: bold;
+.user-message { 
+  background: var(--xc-surface-2); 
+  color: var(--xc-text); 
+  padding: 8px; 
+  border-radius: 6px; 
+  margin: 5px 0; 
+  border-left: 3px solid var(--xc-accent); 
 }
+
+.assistant-message { 
+  background: var(--xc-surface); 
+  color: var(--xc-text); 
+  padding: 8px; 
+  border-radius: 6px; 
+  margin: 5px 0; 
+  border-left: 3px solid var(--xc-success); 
+}
+
+.ai-operation { 
+  background: rgba(255,193,7,0.15); 
+  color: var(--xc-text); 
+  padding: 5px 8px; 
+  border-radius: 4px; 
+  margin: 2px 0; 
+  border-left: 3px solid var(--xc-warn); 
+  font-size: 0.9em; 
+}
+
+.status-working { color: var(--xc-warn); font-weight: bold; }
+.status-success { color: var(--xc-success); font-weight: bold; }
+.status-error { color: #dc3545; font-weight: bold; }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 # Initialize session state with enhanced structure
 if "workbook" not in st.session_state:
@@ -127,6 +163,11 @@ if "active_ribbon_tab" not in st.session_state:
     st.session_state.active_ribbon_tab = "Home"
 if "ai_operations_log" not in st.session_state:
     st.session_state.ai_operations_log = []
+# Model selection state
+if "chat_model" not in st.session_state:
+    st.session_state.chat_model = os.getenv("OPENAI_CHAT_MODEL") or os.getenv("OPENAI_MODEL") or "gpt-4o"
+if "model_probe" not in st.session_state:
+    st.session_state.model_probe = None
 
 # Ensure chat history exists for current sheet
 if st.session_state.current_sheet not in st.session_state.chat_histories:
@@ -226,7 +267,7 @@ elif st.session_state.active_ribbon_tab == "Insert":
     insert_cols = st.columns([1,1,1,1])
     
     with insert_cols[0]:
-        st.markdown("**� Charts**")
+        st.markdown("**📊 Charts**")
         if st.button("Create Chart"):
             st.session_state.show_chart_builder = True
     
@@ -243,6 +284,40 @@ elif st.session_state.active_ribbon_tab == "Insert":
         if st.button("Quick Stats"):
             st.session_state.show_stats = True
 
+elif st.session_state.active_ribbon_tab == "Data":
+    st.markdown("### 📊 Data Operations")
+    data_cols = st.columns([1,1,1,1])
+    
+    with data_cols[0]:
+        st.markdown("**🔄 Sort**")
+        sort_col = st.selectbox("Column", df.columns if not df.empty else [], key="sort_col")
+        sort_asc = st.checkbox("Ascending", True, key="sort_asc")
+        if st.button("Apply Sort") and sort_col:
+            df = get_sheet(st.session_state.workbook, st.session_state.current_sheet)
+            df_sorted = df.sort_values(by=sort_col, ascending=sort_asc, kind="mergesort").reset_index(drop=True)
+            set_sheet(st.session_state.workbook, st.session_state.current_sheet, df_sorted)
+            st.success(f"✅ Sorted by {sort_col} ({'ascending' if sort_asc else 'descending'})")
+            st.rerun()
+    
+    with data_cols[1]:
+        st.markdown("**🔍 Filter**")
+        filt_col = st.selectbox("Column", df.columns if not df.empty else [], key="filt_col")
+        filt_val = st.text_input("Value", key="filt_val")
+        if st.button("Apply Filter") and filt_col:
+            df = get_sheet(st.session_state.workbook, st.session_state.current_sheet)
+            filtered_df = df[df[filt_col].astype(str) == str(filt_val)]
+            st.session_state.filtered_df = filtered_df
+            st.success(f"✅ Filtered {filt_col} = {filt_val}")
+    
+    with data_cols[2]:
+        st.markdown("**📊 Analysis**")
+        if st.button("Pivot Table"):
+            st.info("📊 Pivot tables coming soon!")
+        
+    with data_cols[3]:
+        st.markdown("**🔗 Connections**")
+        st.write("External data sources")
+
 elif st.session_state.active_ribbon_tab == "Formulas":
     st.markdown("### 🧮 Formulas")
     formula_cols = st.columns([1,1,1,1])
@@ -258,7 +333,7 @@ elif st.session_state.active_ribbon_tab == "Formulas":
         selected_date = st.selectbox("Function", date_functions, key="date_func")
         
     with formula_cols[2]:
-        st.markdown("**� Text**")
+        st.markdown("**🔤 Text**")
         text_functions = ["CONCATENATE", "LEFT", "RIGHT", "MID", "LEN", "UPPER", "LOWER"]
         selected_text = st.selectbox("Function", text_functions, key="text_func")
         
@@ -413,8 +488,149 @@ if st.session_state.get("show_stats", False):
 
 # Sidebar for AI Chat
 with st.sidebar:
-    st.header(f"🤖 AI Assistant (GPT-4o)")
+    # Appearance controls
+    with st.expander("🎨 Appearance", expanded=False):
+        theme_choice = st.selectbox("Theme", ["Auto", "Light", "Dark"], index=0, key="theme_choice")
+    
+    # Apply theme overrides with higher specificity
+    if st.session_state.get("theme_choice") == "Light":
+        st.markdown(
+            """
+            <style>
+            /* Force light theme - comprehensive override */
+            :root, html, body, .stApp {
+                --xc-surface: #ffffff !important;
+                --xc-surface-2: #f6f8fa !important;
+                --xc-text: #111827 !important;
+                --xc-border: rgba(0,0,0,0.12) !important;
+            }
+            
+            /* Override Streamlit's main app */
+            .stApp {
+                background-color: #ffffff !important;
+                color: #111827 !important;
+            }
+            
+            /* Force all buttons to be visible */
+            .stButton > button {
+                background-color: #ffffff !important;
+                color: #111827 !important;
+                border: 1px solid rgba(0,0,0,0.12) !important;
+            }
+            
+            /* Force selectboxes */
+            .stSelectbox > div > div {
+                background-color: #ffffff !important;
+                color: #111827 !important;
+            }
+            
+            /* Force text inputs */
+            .stTextInput > div > div > input {
+                background-color: #ffffff !important;
+                color: #111827 !important;
+            }
+            
+            /* Force sidebar styling */
+            .css-1d391kg, .css-1cypcdb, section[data-testid="stSidebar"] {
+                background-color: #f6f8fa !important;
+                color: #111827 !important;
+            }
+            
+            /* Chat messages in light mode */
+            .user-message, .assistant-message, .ai-operation {
+                color: #111827 !important;
+            }
+            
+            /* Fix any remaining dark elements */
+            div, span, p, h1, h2, h3, h4, h5, h6 {
+                color: #111827 !important;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+    elif st.session_state.get("theme_choice") == "Dark":
+        st.markdown(
+            """
+            <style>
+            /* Force dark theme - comprehensive override */
+            :root, html, body, .stApp {
+                --xc-surface: #0e1117 !important;
+                --xc-surface-2: #161b22 !important;
+                --xc-text: #e6edf3 !important;
+                --xc-border: rgba(255,255,255,0.18) !important;
+            }
+            
+            /* Override Streamlit's main app */
+            .stApp {
+                background-color: #0e1117 !important;
+                color: #e6edf3 !important;
+            }
+            
+            /* Force all buttons to be visible */
+            .stButton > button {
+                background-color: #161b22 !important;
+                color: #e6edf3 !important;
+                border: 1px solid rgba(255,255,255,0.18) !important;
+            }
+            
+            /* Force selectboxes */
+            .stSelectbox > div > div {
+                background-color: #161b22 !important;
+                color: #e6edf3 !important;
+            }
+            
+            /* Force text inputs */
+            .stTextInput > div > div > input {
+                background-color: #161b22 !important;
+                color: #e6edf3 !important;
+            }
+            
+            /* Force sidebar styling */
+            .css-1d391kg, .css-1cypcdb, section[data-testid="stSidebar"] {
+                background-color: #161b22 !important;
+                color: #e6edf3 !important;
+            }
+            
+            /* Chat messages in dark mode */
+            .user-message, .assistant-message, .ai-operation {
+                color: #e6edf3 !important;
+            }
+            
+            /* Fix any remaining light elements */
+            div, span, p, h1, h2, h3, h4, h5, h6 {
+                color: #e6edf3 !important;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.header(f"🤖 AI Assistant ({st.session_state.chat_model})")
     st.caption(f"Chat for Sheet: **{st.session_state.current_sheet}**")
+    
+    # Model selection and probing
+    with st.expander("Model settings", expanded=False):
+        if st.button("Test latest models"):
+            with st.spinner("Probing models..."):
+                st.session_state.model_probe = probe_models()
+                if st.session_state.model_probe.get("working"):
+                    st.session_state.chat_model = st.session_state.model_probe["working"][0]
+        probe = st.session_state.model_probe
+        if probe:
+            if probe.get("working"):
+                st.success("Working: " + ", ".join(probe["working"]))
+            if probe.get("failed"):
+                st.error("Some models failed:")
+                st.text("\n".join([f"{model}: {error[:100]}..." for model, error in probe["failed"].items()]))
+        available = (probe["working"] if probe and probe.get("working") else [
+            "gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini", "gpt-4-turbo"
+        ])
+        # Ensure current model is in options
+        if st.session_state.chat_model not in available:
+            available = [st.session_state.chat_model] + [m for m in available if m != st.session_state.chat_model]
+        selected = st.selectbox("Use model", options=available, index=0, key="chat_model_select")
+        st.session_state.chat_model = selected
     
     # Chat history display
     if st.session_state.chat_histories[st.session_state.current_sheet]:
@@ -431,13 +647,13 @@ with st.sidebar:
             for msg in st.session_state.chat_histories[st.session_state.current_sheet]:
                 if msg["role"] == "user":
                     st.markdown(f"""
-                    <div class="user-message">
+                    <div class=\"user-message\">
                         <strong>👤 You:</strong> {msg["content"]}
                     </div>
                     """, unsafe_allow_html=True)
                 else:
                     st.markdown(f"""
-                    <div class="assistant-message">
+                    <div class=\"assistant-message\">
                         <strong>🤖 AI:</strong> {msg["content"]}
                     </div>
                     """, unsafe_allow_html=True)
@@ -449,7 +665,7 @@ with st.sidebar:
         for op in recent_ops:
             icon = "👤" if op['type'] == 'user' else "🤖"
             st.markdown(f"""
-            <div class="ai-operation">
+            <div class=\"ai-operation\">
                 {icon} <small>{op['timestamp']}</small><br>
                 {op['operation']}
             </div>
@@ -473,12 +689,13 @@ with st.sidebar:
                 # Get chat history for context
                 chat_history = st.session_state.chat_histories[st.session_state.current_sheet]
                 
-                # Call the agent with context
+                # Call the agent with context and selected model
                 reply = run_agent(
                     user_msg=user_msg,
                     workbook=st.session_state.workbook,
                     current_sheet=st.session_state.current_sheet,
-                    chat_history=chat_history[:-1]  # Exclude the current message
+                    chat_history=chat_history[:-1],  # Exclude the current message
+                    model_name=st.session_state.chat_model
                 )
                 
                 # Log AI operation

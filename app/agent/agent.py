@@ -10,6 +10,53 @@ from app.services.workbook import list_sheets
 
 client = OpenAI()
 
+# Preferred models to try in order
+PREFERRED_MODELS = [
+    "gpt-4o",
+    "gpt-4o-mini",
+    "gpt-4.1",
+    "gpt-4.1-mini",
+    "gpt-4-turbo",
+]
+
+
+def probe_models(candidates: List[str] | None = None, timeout_sec: float = 10.0) -> Dict[str, Any]:
+    """Try a quick minimal chat call on candidate models and return which work.
+    Returns a dict: { 'working': [models], 'failed': {model: error_str} }
+    """
+    import time
+    models = candidates or PREFERRED_MODELS
+    working: List[str] = []
+    failed: Dict[str, str] = {}
+    for m in models:
+        try:
+            # Minimal, fast ping
+            resp = client.chat.completions.create(
+                model=m,
+                messages=[{"role": "user", "content": "ping"}],
+                temperature=0.0,
+                max_tokens=4,
+            )
+            _ = resp.choices[0].message.content
+            working.append(m)
+        except Exception as e:
+            failed[m] = str(e)
+    return {"working": working, "failed": failed}
+
+
+def pick_default_model() -> str:
+    """Pick a default model based on env or probing results."""
+    env_model = os.getenv("OPENAI_CHAT_MODEL") or os.getenv("OPENAI_MODEL")
+    if env_model:
+        return env_model
+    # Probe and return first working, else last fallback
+    result = probe_models()
+    if result["working"]:
+        return result["working"][0]
+    # Final fallback – allow code to raise later
+    return PREFERRED_MODELS[0]
+
+
 SYSTEM_PROMPT = (
     "You are an advanced Excel assistant for a web spreadsheet application. "
     "IMPORTANT: Always explain your actions step-by-step and provide detailed feedback about what you're doing. "
@@ -153,26 +200,28 @@ TOOLS = [
 ]
 
 
-def run_agent(user_msg: str, workbook: Dict[str, pd.DataFrame], current_sheet: str, chat_history: List[Dict] = None) -> str:
+def run_agent(user_msg: str, workbook: Dict[str, pd.DataFrame], current_sheet: str, chat_history: List[Dict] = None, model_name: str | None = None) -> str:
     """Run a single chat turn with function/tool calling and side‑effect the workbook."""
-    
+
+    model = model_name or os.getenv("OPENAI_CHAT_MODEL") or os.getenv("OPENAI_MODEL") or "gpt-4o"
+
     # Start with system messages
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "system", "content": f"Sheets available: {', '.join(list_sheets(workbook))}. Current sheet: {current_sheet}."},
     ]
-    
+
     # Add recent chat history for context (last 20 messages)
     if chat_history:
         recent_history = chat_history[-20:] if len(chat_history) > 20 else chat_history
         messages.extend(recent_history)
-    
+
     # Add current user message
     messages.append({"role": "user", "content": user_msg})
 
     for iteration in range(6):  # small loop to allow a few tool calls
         resp = client.chat.completions.create(
-            model="gpt-4o",
+            model=model,
             messages=messages,
             tools=TOOLS,
             tool_choice="auto",
@@ -197,7 +246,7 @@ def run_agent(user_msg: str, workbook: Dict[str, pd.DataFrame], current_sheet: s
                     } for tc in msg.tool_calls
                 ]
             })
-            
+
             # execute each tool call and append results
             for tc in msg.tool_calls:
                 name = tc.function.name
