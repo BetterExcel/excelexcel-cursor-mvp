@@ -1070,6 +1070,48 @@ with st.sidebar:
     
     st.markdown(f"**📋 Active Sheet:** `{st.session_state.current_sheet}`")
     
+    # Show AI Context (what the AI can see about the current sheet)
+    with st.expander("🔍 AI Context (What AI knows about current sheet)", expanded=False):
+        current_df = get_sheet(st.session_state.workbook, st.session_state.current_sheet)
+        
+        if current_df.empty:
+            st.info("📄 Sheet is empty - AI knows this sheet has no data yet")
+        else:
+            st.markdown("**📊 Sheet Overview:**")
+            st.markdown(f"• **Dimensions:** {len(current_df)} rows × {len(current_df.columns)} columns")
+            st.markdown(f"• **Columns:** {', '.join(current_df.columns.tolist())}")
+            
+            # Show column details that AI can see
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("**📋 Column Details:**")
+                for col in current_df.columns:
+                    non_null = current_df[col].count()
+                    total = len(current_df)
+                    dtype = current_df[col].dtype
+                    st.markdown(f"• **{col}:** {dtype} ({non_null}/{total} values)")
+            
+            with col2:
+                st.markdown("**🔢 Sample Data (what AI sees):**")
+                for col in current_df.columns:
+                    sample_values = current_df[col].dropna().head(2).tolist()
+                    if sample_values:
+                        sample_str = ", ".join([str(v) for v in sample_values])
+                        st.markdown(f"• **{col}:** {sample_str}...")
+                    else:
+                        st.markdown(f"• **{col}:** (no data)")
+            
+            # Show numeric summaries that AI can see
+            numeric_cols = current_df.select_dtypes(include=['number']).columns.tolist()
+            if numeric_cols:
+                st.markdown("**📈 Numeric Data Insights:**")
+                for col in numeric_cols[:2]:  # Show first 2 numeric columns
+                    series = pd.to_numeric(current_df[col], errors='coerce').dropna()
+                    if len(series) > 0:
+                        st.markdown(f"• **{col}:** range {series.min():.1f} to {series.max():.1f}, avg {series.mean():.1f}")
+        
+        st.info("💡 **Tip:** The AI uses this context to provide smarter recommendations and understand your data better!")
+    
     # Model selection and probing
     with st.expander("⚙️ Model Settings", expanded=False):
         col1, col2 = st.columns([1, 1])
