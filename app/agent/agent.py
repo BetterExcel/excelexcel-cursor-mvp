@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, List
 import os
 import json
 import pandas as pd
@@ -11,10 +11,14 @@ from app.services.workbook import list_sheets
 client = OpenAI()
 
 SYSTEM_PROMPT = (
-    "You are an Excel assistant for a web spreadsheet. "
+    "You are an advanced Excel assistant for a web spreadsheet application. "
+    "IMPORTANT: Always explain your actions step-by-step and provide detailed feedback about what you're doing. "
+    "When performing operations, break down your process and explain each step clearly. "
     "Use the provided tools to perform actions rather than replying with manual steps. "
     "Default to the current sheet unless the user names another. "
-    "Ask clarification if column names/targets are ambiguous. Be concise."
+    "Ask clarification if column names/targets are ambiguous. "
+    "Always acknowledge successful operations and explain what was accomplished. "
+    "If an operation fails, explain why and suggest alternatives."
 )
 
 TOOLS = [
@@ -149,17 +153,26 @@ TOOLS = [
 ]
 
 
-def run_agent(user_msg: str, workbook: Dict[str, pd.DataFrame], current_sheet: str) -> str:
+def run_agent(user_msg: str, workbook: Dict[str, pd.DataFrame], current_sheet: str, chat_history: List[Dict] = None) -> str:
     """Run a single chat turn with function/tool calling and side‑effect the workbook."""
+    
+    # Start with system messages
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "system", "content": f"Sheets available: {', '.join(list_sheets(workbook))}. Current sheet: {current_sheet}."},
-        {"role": "user", "content": user_msg},
     ]
+    
+    # Add recent chat history for context (last 20 messages)
+    if chat_history:
+        recent_history = chat_history[-20:] if len(chat_history) > 20 else chat_history
+        messages.extend(recent_history)
+    
+    # Add current user message
+    messages.append({"role": "user", "content": user_msg})
 
-    for _ in range(6):  # small loop to allow a few tool calls
+    for iteration in range(6):  # small loop to allow a few tool calls
         resp = client.chat.completions.create(
-            model="gpt-4-turbo",
+            model="gpt-4o",
             messages=messages,
             tools=TOOLS,
             tool_choice="auto",
