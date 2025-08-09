@@ -650,10 +650,10 @@ with st.expander("🧪 Quick Formula Test", expanded=False):
     with col1:
         if st.button("📊 Add Sample Data"):
             df = get_sheet(st.session_state.workbook, st.session_state.current_sheet)
-            # Add some sample data for testing
+            # Add some sample data for testing with proper data types
             sample_data = {
                 'A': [10, 20, 30, 40, 50],
-                'B': [5, 15, 25, 35, 45],
+                'B': [5.5, 15.2, 25.7, 35.1, 45.9],
                 'C': ['Item1', 'Item2', 'Item3', 'Item4', 'Item5'],
                 'D': [None, None, None, None, None],  # For formula results
                 'E': [None, None, None, None, None]   # For more formulas
@@ -665,8 +665,12 @@ with st.expander("🧪 Quick Formula Test", expanded=False):
                         if i < len(df):
                             df.at[i, col] = val
             
+            # Convert columns to appropriate types
+            df['A'] = pd.to_numeric(df['A'], errors='coerce')
+            df['B'] = pd.to_numeric(df['B'], errors='coerce')
+            
             set_sheet(st.session_state.workbook, st.session_state.current_sheet, df)
-            st.success("✅ Sample data added!")
+            st.success("✅ Sample data added with proper data types!")
             st.rerun()
     
     with col2:
@@ -689,19 +693,62 @@ show_df = st.session_state.get("filtered_df", base_df)
 # Add row and column indicators (simplified)
 st.caption("💡 **Tip:** Click on any cell to edit directly. Changes save automatically when you press Enter or click elsewhere.")
 
+# Create smart column configuration based on data types
+def create_column_config(df):
+    """Create appropriate column configuration based on data types"""
+    config = {}
+    for col in df.columns:
+        try:
+            # Check the data type of the column
+            sample_data = df[col].dropna()
+            if len(sample_data) > 0:
+                # Try to determine the best column type
+                if pd.api.types.is_numeric_dtype(df[col]):
+                    # Numeric data - use number column
+                    if df[col].dtype == 'int64':
+                        config[col] = st.column_config.NumberColumn(
+                            help=f"Integer column {col}",
+                            step=1,
+                            format="%d"
+                        )
+                    else:
+                        config[col] = st.column_config.NumberColumn(
+                            help=f"Numeric column {col}",
+                            step=0.01,
+                            format="%.2f"
+                        )
+                elif pd.api.types.is_datetime64_any_dtype(df[col]):
+                    # DateTime data
+                    config[col] = st.column_config.DatetimeColumn(
+                        help=f"Date/time column {col}"
+                    )
+                else:
+                    # Text or mixed data - use text column
+                    config[col] = st.column_config.TextColumn(
+                        help=f"Text column {col}",
+                        max_chars=1000,
+                    )
+            else:
+                # Empty column - default to text
+                config[col] = st.column_config.TextColumn(
+                    help=f"Column {col}",
+                    max_chars=1000,
+                )
+        except Exception:
+            # If any error occurs, default to text column
+            config[col] = st.column_config.TextColumn(
+                help=f"Column {col}",
+                max_chars=1000,
+            )
+    return config
+
 edited = st.data_editor(
     show_df, 
     num_rows="dynamic", 
     use_container_width=True,
     key="main_editor",
     hide_index=False,
-    column_config={
-        # Make all columns editable
-        col: st.column_config.TextColumn(
-            help=f"Column {col}",
-            max_chars=1000,
-        ) for col in show_df.columns
-    }
+    column_config=create_column_config(show_df)
 )
 
 # Track changes and mark as user operations
