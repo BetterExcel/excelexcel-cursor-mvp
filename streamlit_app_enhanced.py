@@ -306,31 +306,78 @@ span, p, div {
 }
 
 .user-message { 
-  background: var(--xc-surface-2); 
+  background: linear-gradient(135deg, var(--xc-surface-2), var(--xc-surface)); 
   color: var(--xc-text); 
-  padding: 8px; 
-  border-radius: 6px; 
-  margin: 5px 0; 
-  border-left: 3px solid var(--xc-accent); 
+  padding: 12px 16px; 
+  border-radius: 12px; 
+  margin: 8px 0; 
+  border-left: 4px solid var(--xc-accent); 
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  animation: slideIn 0.3s ease-out;
 }
 
 .assistant-message { 
-  background: var(--xc-surface); 
+  background: linear-gradient(135deg, var(--xc-surface), var(--xc-surface-2)); 
   color: var(--xc-text); 
-  padding: 8px; 
-  border-radius: 6px; 
-  margin: 5px 0; 
-  border-left: 3px solid var(--xc-success); 
+  padding: 12px 16px; 
+  border-radius: 12px; 
+  margin: 8px 0; 
+  border-left: 4px solid var(--xc-success); 
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  animation: slideIn 0.3s ease-out;
 }
 
 .ai-operation { 
-  background: rgba(255,193,7,0.15); 
+  background: linear-gradient(135deg, rgba(255,193,7,0.15), rgba(255,193,7,0.05)); 
   color: var(--xc-text); 
-  padding: 5px 8px; 
-  border-radius: 4px; 
-  margin: 2px 0; 
+  padding: 8px 12px; 
+  border-radius: 8px; 
+  margin: 4px 0; 
   border-left: 3px solid var(--xc-warn); 
-  font-size: 0.9em; 
+  font-size: 0.85em; 
+  transition: all 0.2s ease;
+}
+
+.ai-operation:hover {
+  background: linear-gradient(135deg, rgba(255,193,7,0.25), rgba(255,193,7,0.1));
+  transform: translateX(2px);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.chat-header {
+  background: linear-gradient(135deg, var(--xc-accent), #0052a3);
+  color: white;
+  padding: 12px 16px;
+  border-radius: 8px 8px 0 0;
+  margin-bottom: 0;
+  font-weight: 600;
+}
+
+.chat-container {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--xc-border);
+  border-radius: 0 0 8px 8px;
+  background: var(--xc-surface);
+}
+
+.model-badge {
+  background: var(--xc-accent);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75em;
+  font-weight: 500;
 }
 
 .status-working { color: var(--xc-warn); font-weight: bold; }
@@ -394,7 +441,20 @@ with col2:
     st.info(f"📊 Rows: {len(df)} | Columns: {len(df.columns)} | Sheet: {st.session_state.current_sheet}")
 
 with col3:
-    st.caption("🤖 AI operations will be highlighted in yellow")
+    # Recent operations in header area
+    if st.session_state.ai_operations_log:
+        with st.expander("📝 Recent Operations", expanded=False):
+            recent_ops = st.session_state.ai_operations_log[-5:]  # Show last 5
+            for op in recent_ops:
+                icon = "👤" if op['type'] == 'user' else "🤖"
+                st.markdown(f"""
+                <div class=\"ai-operation\">
+                    {icon} <small>{op['timestamp']}</small><br>
+                    {op['operation']}
+                </div>
+                """, unsafe_allow_html=True)
+    else:
+        st.caption("🤖 AI operations will be highlighted in yellow")
 
 # Ribbon content based on active tab
 if st.session_state.active_ribbon_tab == "Home":
@@ -552,47 +612,55 @@ elif st.session_state.active_ribbon_tab == "Review":
         st.markdown("**✅ Validation**")
         st.write("Data validation rules")
 
-# Formula Bar
+# Formula Bar with enhanced styling
 st.markdown("### 🧮 Formula Bar")
+st.markdown("*Apply formulas to individual cells or entire columns*")
 
 # Add helpful instructions
 with st.expander("📖 Formula Help", expanded=False):
-    st.markdown("""
-    **How to use formulas:**
-    
-    **Basic Usage:**
-    1. Enter a cell reference (e.g., A1, B2, C10)
-    2. Enter a formula starting with `=`
-    3. Click Apply to execute
-    
-    **Supported Functions:**
-    - **Math:** `=A1+B1`, `=A1*B1/2`, `=A1-5`
-    - **Sum:** `=SUM(A1:A5)` - adds all values in range
-    - **Average:** `=AVERAGE(A1:A5)` - calculates mean
-    - **Count:** `=COUNT(A1:A5)` - counts non-empty cells
-    - **Min/Max:** `=MIN(A1:A5)`, `=MAX(A1:A5)`
-    - **Statistics:** `=STDEV(A1:A5)`, `=MEDIAN(A1:A5)`
-    - **Date:** `=TODAY()`, `=NOW()`
-    - **Text:** `=CONCATENATE(A1,B1)`, `=LEN(A1)`
-    
-    **Examples:**
-    - `=SUM(A1:A10)` - Sum of A1 through A10
-    - `=A1*1.1` - Increase A1 by 10%
-    - `=AVERAGE(B1:B5)*2` - Double the average
-    - `=TODAY()` - Current date
-    - `=CONCATENATE(A1," ",B1)` - Join A1 and B1 with space
-    """)
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("""
+        **Basic Usage:**
+        1. Enter a cell reference (e.g., A1, B2, C10)
+        2. Enter a formula starting with `=`
+        3. Click Apply to execute
+        
+        **Math Functions:**
+        - `=A1+B1` - Add two cells
+        - `=A1*B1/2` - Multiply and divide
+        - `=A1-5` - Subtract constant
+        """)
+    with col2:
+        st.markdown("""
+        **Statistical Functions:**
+        - `=SUM(A1:A10)` - Sum range
+        - `=AVERAGE(A1:A10)` - Average
+        - `=COUNT(A1:A10)` - Count non-empty
+        - `=MIN(A1:A10)` - Minimum value
+        - `=MAX(A1:A10)` - Maximum value
+        
+        **Other Functions:**
+        - `=TODAY()` - Current date
+        - `=CONCATENATE(A1,B1)` - Join text
+        """)
 
-formula_cols = st.columns([0.2, 0.5, 0.2, 0.1])
-with formula_cols[0]:
-    target_cell = st.text_input("📍 Cell (e.g., A1)", key="cell_addr", placeholder="A1")
-with formula_cols[1]:
-    formula = st.text_input("📝 Formula", key="formula_text", 
-                          placeholder="=SUM(A1:A10) or =TODAY() or =CONCATENATE(A1,B1)")
-with formula_cols[2]:
-    apply_col = st.checkbox("Apply to column", help="Apply formula to entire column")
-with formula_cols[3]:
-    if st.button("⚡ Apply"):
+# Enhanced formula input with better layout
+formula_container = st.container()
+with formula_container:
+    formula_cols = st.columns([0.2, 0.5, 0.2, 0.1])
+    with formula_cols[0]:
+        target_cell = st.text_input("📍 **Target Cell**", key="cell_addr", placeholder="A1", help="Enter the cell where you want to apply the formula")
+    with formula_cols[1]:
+        formula = st.text_input("📝 **Formula**", key="formula_text", 
+                              placeholder="=SUM(A1:A10) or =TODAY() or =CONCATENATE(A1,B1)", 
+                              help="Enter a formula starting with = or a direct value")
+    with formula_cols[2]:
+        apply_col = st.checkbox("📋 **Apply to Column**", help="Apply formula to entire column instead of single cell")
+    with formula_cols[3]:
+        apply_button = st.button("⚡ **Apply**", type="primary", help="Execute the formula")
+    
+    if apply_button:
         if target_cell and formula:
             df = get_sheet(st.session_state.workbook, st.session_state.current_sheet)
             try:
@@ -742,8 +810,12 @@ def create_column_config(df):
             )
     return config
 
+# Create Excel-style display with proper row numbering
+display_df = show_df.copy()
+display_df.index = range(1, len(display_df) + 1)  # Start from 1 instead of 0
+
 edited = st.data_editor(
-    show_df, 
+    display_df, 
     num_rows="dynamic", 
     use_container_width=True,
     key="main_editor",
@@ -751,9 +823,15 @@ edited = st.data_editor(
     column_config=create_column_config(show_df)
 )
 
+# Convert back to 0-based indexing for internal processing
+if not edited.equals(display_df):
+    # Reset index back to 0-based for internal consistency
+    edited.index = range(len(edited))
+    show_df = edited
+
 # Track changes and mark as user operations
-if show_df is base_df and not edited.equals(base_df):
-    set_sheet(st.session_state.workbook, st.session_state.current_sheet, edited)
+if show_df is base_df and not show_df.equals(base_df):
+    set_sheet(st.session_state.workbook, st.session_state.current_sheet, show_df)
     
     # Log user edit
     timestamp = datetime.now().strftime("%H:%M:%S")
@@ -982,75 +1060,132 @@ with st.sidebar:
             unsafe_allow_html=True,
         )
 
-    st.header(f"🤖 AI Assistant ({st.session_state.chat_model})")
-    st.caption(f"Chat for Sheet: **{st.session_state.current_sheet}**")
+    # Enhanced AI Assistant Header
+    st.markdown(f"""
+    <div class="chat-header">
+        🤖 AI Assistant
+        <span class="model-badge">{st.session_state.chat_model}</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown(f"**📋 Active Sheet:** `{st.session_state.current_sheet}`")
     
     # Model selection and probing
-    with st.expander("Model settings", expanded=False):
-        if st.button("Test latest models"):
-            with st.spinner("Probing models..."):
-                st.session_state.model_probe = probe_models()
-                if st.session_state.model_probe.get("working"):
-                    st.session_state.chat_model = st.session_state.model_probe["working"][0]
+    with st.expander("⚙️ Model Settings", expanded=False):
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("🔍 Test Models", help="Test which models work with your API key"):
+                with st.spinner("Probing models..."):
+                    st.session_state.model_probe = probe_models()
+                    if st.session_state.model_probe.get("working"):
+                        st.session_state.chat_model = st.session_state.model_probe["working"][0]
+        
         probe = st.session_state.model_probe
         if probe:
             if probe.get("working"):
-                st.success("Working: " + ", ".join(probe["working"]))
+                st.success("✅ Working: " + ", ".join(probe["working"]))
             if probe.get("failed"):
-                st.error("Some models failed:")
-                st.text("\n".join([f"{model}: {error[:100]}..." for model, error in probe["failed"].items()]))
+                st.error("❌ Some models failed:")
+                for model, error in probe["failed"].items():
+                    st.text(f"• {model}: {error[:50]}...")
+        
         available = (probe["working"] if probe and probe.get("working") else [
-            "gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini", "gpt-4-turbo"
+            "gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"
         ])
         # Ensure current model is in options
         if st.session_state.chat_model not in available:
             available = [st.session_state.chat_model] + [m for m in available if m != st.session_state.chat_model]
-        selected = st.selectbox("Use model", options=available, index=0, key="chat_model_select")
+        selected = st.selectbox("🎯 Select Model", options=available, index=0, key="chat_model_select")
         st.session_state.chat_model = selected
     
-    # Chat history display
-    if st.session_state.chat_histories[st.session_state.current_sheet]:
-        st.markdown("### 💬 Chat History")
-        
-        # Clear chat history button
-        if st.button("🗑️ Clear Chat History"):
-            st.session_state.chat_histories[st.session_state.current_sheet] = []
-            st.rerun()
-        
-        # Display chat messages in a container
-        chat_container = st.container()
-        with chat_container:
-            for msg in st.session_state.chat_histories[st.session_state.current_sheet]:
-                if msg["role"] == "user":
-                    st.markdown(f"""
-                    <div class=\"user-message\">
-                        <strong>👤 You:</strong> {msg["content"]}
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown(f"""
-                    <div class=\"assistant-message\">
-                        <strong>🤖 AI:</strong> {msg["content"]}
-                    </div>
-                    """, unsafe_allow_html=True)
+    # Chat statistics
+    chat_count = len(st.session_state.chat_histories[st.session_state.current_sheet])
+    if chat_count > 0:
+        st.info(f"💬 **{chat_count}** messages in this chat")
     
-    # AI Operations Log
-    if st.session_state.ai_operations_log:
-        st.markdown("### 📝 Recent Operations")
-        recent_ops = st.session_state.ai_operations_log[-10:]  # Show last 10
-        for op in recent_ops:
-            icon = "👤" if op['type'] == 'user' else "🤖"
-            st.markdown(f"""
-            <div class=\"ai-operation\">
-                {icon} <small>{op['timestamp']}</small><br>
-                {op['operation']}
-            </div>
-            """, unsafe_allow_html=True)
+    # Chat history display with enhanced styling
+    if st.session_state.chat_histories[st.session_state.current_sheet]:
+        
+        # Chat controls
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("🗑️ Clear Chat", help="Clear all chat history for this sheet"):
+                st.session_state.chat_histories[st.session_state.current_sheet] = []
+                st.rerun()
+        with col2:
+            if st.button("📤 Export Chat", help="Export chat history"):
+                chat_text = "\n\n".join([
+                    f"{'👤 You' if msg['role'] == 'user' else '🤖 AI'}: {msg['content']}"
+                    for msg in st.session_state.chat_histories[st.session_state.current_sheet]
+                ])
+                st.download_button(
+                    "💾 Download",
+                    chat_text,
+                    file_name=f"chat_{st.session_state.current_sheet}.txt",
+                    mime="text/plain"
+                )
+        
+        # Enhanced chat container
+        st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+        for i, msg in enumerate(st.session_state.chat_histories[st.session_state.current_sheet]):
+            if msg["role"] == "user":
+                st.markdown(f"""
+                <div class="user-message">
+                    <strong>👤 You</strong><br>
+                    {msg["content"]}
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div class="assistant-message">
+                    <strong>🤖 Assistant</strong><br>
+                    {msg["content"]}
+                </div>
+                """, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+    else:
+        st.info("💭 Start a conversation by typing below!")
     
     st.divider()
     
-    # Chat input
-    user_msg = st.chat_input("Ask me to perform spreadsheet operations...")
+    # Enhanced chat input with suggestions
+    st.markdown("### 💬 Ask AI Assistant")
+    
+    # Quick action buttons
+    st.markdown("**🚀 Quick Actions:**")
+    quick_actions = st.columns(2)
+    with quick_actions[0]:
+        if st.button("📊 Analyze Data", help="Get insights about your data"):
+            quick_msg = "Please analyze the data in this sheet and provide insights"
+            st.session_state.quick_message = quick_msg
+    with quick_actions[1]:
+        if st.button("📈 Create Chart", help="Generate a chart from your data"):
+            quick_msg = "Create a chart to visualize this data"
+            st.session_state.quick_message = quick_msg
+    
+    # Chat input with placeholder suggestions
+    placeholder_texts = [
+        "Ask me to analyze your data...",
+        "Try: 'Calculate the sum of column A'",
+        "Try: 'Create a pivot table'",
+        "Try: 'Add a formula to calculate totals'",
+        "Try: 'Sort the data by column B'",
+        "Ask me anything about spreadsheets!"
+    ]
+    
+    import random
+    placeholder = random.choice(placeholder_texts)
+    
+    # Handle quick messages
+    initial_value = st.session_state.get("quick_message", "")
+    if initial_value:
+        st.session_state.quick_message = ""  # Clear after use
+    
+    user_msg = st.chat_input(placeholder, key="ai_chat_input")
+    
+    # Use quick message if no manual input
+    if not user_msg and initial_value:
+        user_msg = initial_value
     
     if user_msg:
         # Add user message to history
