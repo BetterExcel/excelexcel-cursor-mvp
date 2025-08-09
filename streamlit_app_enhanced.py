@@ -78,6 +78,63 @@ st.markdown(
   border: 1px solid var(--xc-border) !important;
 }
 
+/* Fix selectbox dropdown */
+.stSelectbox div[data-baseweb="select"] {
+  background-color: var(--xc-surface) !important;
+  color: var(--xc-text) !important;
+}
+
+.stSelectbox div[data-baseweb="select"] > div {
+  background-color: var(--xc-surface) !important;
+  color: var(--xc-text) !important;
+  border: 1px solid var(--xc-border) !important;
+}
+
+/* Fix selectbox options/menu */
+.stSelectbox ul, .stSelectbox li {
+  background-color: var(--xc-surface) !important;
+  color: var(--xc-text) !important;
+}
+
+/* More specific Streamlit component targeting */
+div[data-testid="stSelectbox"] {
+  background-color: var(--xc-surface) !important;
+  color: var(--xc-text) !important;
+}
+
+div[data-testid="stButton"] {
+  background-color: var(--xc-surface) !important;
+  color: var(--xc-text) !important;
+}
+
+div[data-testid="stTextInput"] {
+  background-color: var(--xc-surface) !important;
+  color: var(--xc-text) !important;
+}
+
+div[data-testid="stFileUploader"] {
+  background-color: var(--xc-surface) !important;
+  color: var(--xc-text) !important;
+}
+
+/* Fix all input elements */
+input, select, textarea {
+  background-color: var(--xc-surface) !important;
+  color: var(--xc-text) !important;
+  border: 1px solid var(--xc-border) !important;
+}
+
+/* Fix Streamlit's internal styling classes */
+.css-1cpxqw2, .css-1d391kg, .css-1cypcdb {
+  background-color: var(--xc-surface) !important;
+  color: var(--xc-text) !important;
+}
+
+/* Fix any remaining text visibility issues */
+span, p, div {
+  color: var(--xc-text) !important;
+}
+
 /* Fix text input styling */
 .stTextInput > div > div > input {
   background-color: var(--xc-surface) !important;
@@ -90,6 +147,139 @@ st.markdown(
   background-color: var(--xc-surface) !important;
   color: var(--xc-text) !important;
   border: 1px solid var(--xc-border) !important;
+}
+
+/* Fix checkbox styling */
+.stCheckbox > label {
+  color: var(--xc-text) !important;
+}
+
+/* Fix radio button styling */
+.stRadio > label {
+  color: var(--xc-text) !important;
+}
+
+/* Fix multiselect styling */
+.stMultiSelect > div > div {
+  background-color: var(--xc-surface) !important;
+  color: var(--xc-text) !important;
+  border: 1px solid var(--xc-border) !important;
+}
+
+/* Fix number input styling */
+.stNumberInput > div > div > input {
+  background-color: var(--xc-surface) !important;
+  color: var(--xc-text) !important;
+  border: 1px solid var(--xc-border) !important;
+}
+
+/* Fix text area styling */
+.stTextArea > div > div > textarea {
+  background-color: var(--xc-surface) !important;
+  color: var(--xc-text) !important;
+  border: 1px solid var(--xc-border) !important;
+}
+
+/* Fix date input styling */
+.stDateInput > div > div > input {
+  background-color: var(--xc-surface) !important;
+  color: var(--xc-text) !important;
+  border: 1px solid var(--xc-border) !important;
+}
+
+/* Fix time input styling */
+.stTimeInput > div > div > input {
+  background-color: var(--xc-surface) !important;
+  color: var(--xc-text) !important;
+  border: 1px solid var(--xc-border) !important;
+}
+
+/* Fix slider styling */
+.stSlider > div > div {
+  color: var(--xc-text) !important;
+}
+
+/* Fix progress bar styling */
+.stProgress > div > div {
+  background-color: var(--xc-accent) !important;
+}
+
+/* Fix metric styling */
+.metric-container {
+  background-color: var(--xc-surface) !important;
+  color: var(--xc-text) !important;
+  border: 1px solid var(--xc-border) !important;
+  border-radius: 4px !important;
+  padding: 1rem !important;
+}
+
+/* Fix expander styling */
+.streamlit-expanderHeader {
+  background-color: var(--xc-surface-2) !important;
+  color: var(--xc-text) !important;
+  border: 1px solid var(--xc-border) !important;
+}
+
+.streamlit-expanderContent {
+  background-color: var(--xc-surface) !important;
+  color: var(--xc-text) !important;
+  border: 1px solid var(--xc-border) !important;
+}
+
+/* Fix tabs styling */
+.stTabs [data-baseweb="tab-list"] {
+  background-color: var(--xc-surface-2) !important;
+}
+
+.stTabs [data-baseweb="tab"] {
+  background-color: var(--xc-surface) !important;
+  color: var(--xc-text) !important;
+  border: 1px solid var(--xc-border) !important;
+}
+
+/* Fix columns styling */
+.stColumns {
+  background-color: transparent !important;
+}
+
+/* Fix container styling */
+.stContainer {
+  background-color: transparent !important;
+}
+
+/* Fix dataframe styling */
+.stDataFrame, .stDataFrame iframe {
+  background-color: var(--xc-surface) !important;
+  color: var(--xc-text) !important;
+  border: 1px solid var(--xc-border) !important;
+}
+
+/* Fix plotly chart background */
+.js-plotly-plot {
+  background-color: var(--xc-surface) !important;
+}
+
+/* Fix markdown styling */
+.stMarkdown {
+  color: var(--xc-text) !important;
+}
+
+/* Fix caption styling */
+.stCaption {
+  color: var(--xc-text) !important;
+  opacity: 0.7 !important;
+}
+
+/* Fix info/success/warning/error boxes */
+.stAlert {
+  background-color: var(--xc-surface-2) !important;
+  color: var(--xc-text) !important;
+  border: 1px solid var(--xc-border) !important;
+}
+
+/* Fix spinner styling */
+.stSpinner {
+  color: var(--xc-accent) !important;
 }
 
 /***** Components *****/
@@ -524,6 +714,29 @@ with st.sidebar:
                 color: #111827 !important;
             }
             
+            .stSelectbox > div > div > div {
+                background-color: #ffffff !important;
+                color: #111827 !important;
+                border: 1px solid rgba(0,0,0,0.12) !important;
+            }
+            
+            /* Force selectbox options */
+            .stSelectbox div[data-baseweb="select"] > div {
+                background-color: #ffffff !important;
+                color: #111827 !important;
+            }
+            
+            /* Force dropdown menu */
+            .stSelectbox ul {
+                background-color: #ffffff !important;
+                color: #111827 !important;
+            }
+            
+            .stSelectbox li {
+                background-color: #ffffff !important;
+                color: #111827 !important;
+            }
+            
             /* Force text inputs */
             .stTextInput > div > div > input {
                 background-color: #ffffff !important;
@@ -576,6 +789,29 @@ with st.sidebar:
             
             /* Force selectboxes */
             .stSelectbox > div > div {
+                background-color: #161b22 !important;
+                color: #e6edf3 !important;
+            }
+            
+            .stSelectbox > div > div > div {
+                background-color: #161b22 !important;
+                color: #e6edf3 !important;
+                border: 1px solid rgba(255,255,255,0.18) !important;
+            }
+            
+            /* Force selectbox options */
+            .stSelectbox div[data-baseweb="select"] > div {
+                background-color: #161b22 !important;
+                color: #e6edf3 !important;
+            }
+            
+            /* Force dropdown menu */
+            .stSelectbox ul {
+                background-color: #161b22 !important;
+                color: #e6edf3 !important;
+            }
+            
+            .stSelectbox li {
                 background-color: #161b22 !important;
                 color: #e6edf3 !important;
             }
