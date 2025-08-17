@@ -446,6 +446,8 @@ if "chat_input_counter" not in st.session_state:
 # Upload tracking to prevent duplicates
 if "last_uploaded_file" not in st.session_state:
     st.session_state.last_uploaded_file = None
+if "last_uploaded_file_hash" not in st.session_state:
+    st.session_state.last_uploaded_file_hash = None
 
 # Ensure chat history exists for current sheet
 if st.session_state.current_sheet not in st.session_state.chat_histories:
@@ -509,39 +511,44 @@ if st.session_state.active_ribbon_tab == "Home":
         uploaded = st.file_uploader("📤 Import File", type=["csv", "xlsx"], label_visibility="collapsed")
         
         # Check if this is a new file upload (prevent duplicates)
-        if uploaded is not None and uploaded != st.session_state.last_uploaded_file:
-            st.session_state.last_uploaded_file = uploaded
+        if uploaded is not None:
+            # Create a unique identifier for this file
+            file_hash = f"{uploaded.name}_{uploaded.size}_{uploaded.type}"
             
-            if uploaded.name.lower().endswith(".csv"):
-                df = pd.read_csv(uploaded)
-            else:
-                df = pd.read_excel(uploaded)
-            
-            set_sheet(st.session_state.workbook, st.session_state.current_sheet, df)
-            
-            # Auto-save imported file to data directory
-            try:
-                import os
-                from datetime import datetime
+            if file_hash != st.session_state.last_uploaded_file_hash:
+                st.session_state.last_uploaded_file = uploaded
+                st.session_state.last_uploaded_file_hash = file_hash
                 
-                # Create data directory if it doesn't exist
-                data_dir = "data"
-                os.makedirs(data_dir, exist_ok=True)
+                if uploaded.name.lower().endswith(".csv"):
+                    df = pd.read_csv(uploaded)
+                else:
+                    df = pd.read_excel(uploaded)
                 
-                # Save with original filename (with timestamp if needed)
-                base_name = os.path.splitext(uploaded.name)[0]
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"{base_name}_imported_{timestamp}.csv"
-                filepath = os.path.join(data_dir, filename)
+                set_sheet(st.session_state.workbook, st.session_state.current_sheet, df)
                 
-                # Save the imported data
-                df.to_csv(filepath, index=False)
-                
-                st.success(f"✅ File imported and saved as {filename}!")
-            except Exception as e:
-                st.success("✅ File imported!")
-                
-            st.rerun()
+                # Auto-save imported file to data directory
+                try:
+                    import os
+                    from datetime import datetime
+                    
+                    # Create data directory if it doesn't exist
+                    data_dir = "data"
+                    os.makedirs(data_dir, exist_ok=True)
+                    
+                    # Save with original filename (with timestamp if needed)
+                    base_name = os.path.splitext(uploaded.name)[0]
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"{base_name}_imported_{timestamp}.csv"
+                    filepath = os.path.join(data_dir, filename)
+                    
+                    # Save the imported data
+                    df.to_csv(filepath, index=False)
+                    
+                    st.success(f"✅ File imported and saved as {filename}!")
+                except Exception as e:
+                    st.success("✅ File imported!")
+                    
+                st.rerun()
         
         # File Selection from Data Directory
         try:
