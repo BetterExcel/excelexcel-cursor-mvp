@@ -82,3 +82,64 @@ def tool_export(workbook: Dict[str, pd.DataFrame], sheet: str, fmt: str="csv") -
         return df.to_markdown(index=False)
     else:
         raise ValueError("Unsupported export fmt. Use 'csv' or 'markdown'.")
+
+
+def tool_create_csv_file(workbook: Dict[str, pd.DataFrame], sheet: str, filename: str, data: List[List] = None) -> str:
+    """Create a new CSV file with given data or current sheet data and save it to data directory"""
+    import os
+    
+    # Create data directory if it doesn't exist
+    data_dir = "data"
+    os.makedirs(data_dir, exist_ok=True)
+    
+    if data:
+        # Create DataFrame from provided data
+        df = pd.DataFrame(data)
+        # If data has headers, use first row as column names
+        if len(data) > 1:
+            df.columns = data[0]
+            df = df.iloc[1:].reset_index(drop=True)
+    else:
+        # Use current sheet data
+        df = get_sheet(workbook, sheet)
+    
+    # Ensure filename ends with .csv
+    if not filename.endswith('.csv'):
+        filename += '.csv'
+    
+    # Save to data directory
+    filepath = os.path.join(data_dir, filename)
+    df.to_csv(filepath, index=False)
+    
+    # Also update the workbook with this data if it's a new sheet
+    set_sheet(workbook, sheet, df)
+    
+    return f"Created CSV file '{filepath}' with {len(df)} rows and {len(df.columns)} columns. Data also available in sheet '{sheet}'."
+
+
+def tool_save_current_sheet(workbook: Dict[str, pd.DataFrame], sheet: str, filename: str = None) -> str:
+    """Save the current sheet as a CSV file in the data directory"""
+    import os
+    from datetime import datetime
+    
+    # Create data directory if it doesn't exist
+    data_dir = "data"
+    os.makedirs(data_dir, exist_ok=True)
+    
+    # Generate filename if not provided
+    if not filename:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{sheet}_{timestamp}.csv"
+    
+    # Ensure filename ends with .csv
+    if not filename.endswith('.csv'):
+        filename += '.csv'
+    
+    # Get current sheet data
+    df = get_sheet(workbook, sheet)
+    
+    # Save to data directory
+    filepath = os.path.join(data_dir, filename)
+    df.to_csv(filepath, index=False)
+    
+    return f"Saved sheet '{sheet}' as '{filepath}' with {len(df)} rows and {len(df.columns)} columns."

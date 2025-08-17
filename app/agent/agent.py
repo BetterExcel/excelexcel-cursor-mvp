@@ -7,16 +7,23 @@ from openai import OpenAI
 from app.agent import tools as tool_impl
 from app.services.workbook import list_sheets
 
+# Load environment variables
+from dotenv import load_dotenv
+load_dotenv()
 
-client = OpenAI()
+# Initialize OpenAI client with API key from environment
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Preferred models to try in order
+# Preferred models to try in order (prioritize accessible models)
 PREFERRED_MODELS = [
-    "gpt-4o",
-    "gpt-4o-mini",
-    "gpt-4.1",
-    "gpt-4.1-mini",
+    "gpt-4-turbo-2024-04-09",  # Known to work
     "gpt-4-turbo",
+    "gpt-4",
+    "chatgpt-4o-latest",
+    "gpt-4o-2024-11-20",
+    "o1",  # Keep o1 in list but lower priority
+    "o1-2024-12-17",
+    "gpt-3.5-turbo",
 ]
 
 
@@ -30,13 +37,30 @@ def probe_models(candidates: List[str] | None = None, timeout_sec: float = 10.0)
     failed: Dict[str, str] = {}
     for m in models:
         try:
-            # Minimal, fast ping
-            resp = client.chat.completions.create(
-                model=m,
-                messages=[{"role": "user", "content": "ping"}],
-                temperature=0.0,
-                max_tokens=4,
-            )
+            # Different parameters for different model types
+            if m.startswith("o1"):
+                # o1 models use max_completion_tokens and no temperature
+                resp = client.chat.completions.create(
+                    model=m,
+                    messages=[{"role": "user", "content": "ping"}],
+                    max_completion_tokens=10,
+                )
+            elif m.startswith("o3"):
+                # o3 models use max_completion_tokens
+                resp = client.chat.completions.create(
+                    model=m,
+                    messages=[{"role": "user", "content": "ping"}],
+                    max_completion_tokens=10,
+                    temperature=0.0,
+                )
+            else:
+                # Regular models use max_tokens
+                resp = client.chat.completions.create(
+                    model=m,
+                    messages=[{"role": "user", "content": "ping"}],
+                    temperature=0.0,
+                    max_tokens=4,
+                )
             _ = resp.choices[0].message.content
             working.append(m)
         except Exception as e:
@@ -53,8 +77,8 @@ def pick_default_model() -> str:
     result = probe_models()
     if result["working"]:
         return result["working"][0]
-    # Final fallback – allow code to raise later
-    return PREFERRED_MODELS[0]
+    # Final fallback – use known working model
+    return "gpt-4-turbo-2024-04-09"
 
 
 SYSTEM_PROMPT = (
@@ -203,6 +227,41 @@ TOOLS = [
                 "required": ["sheet"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_csv_file",
+            "description": "Create a new CSV file with data and save it to data directory. Can create from scratch or use current sheet.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "sheet": {"type": "string", "description": "Sheet name to create/update"},
+                    "filename": {"type": "string", "description": "CSV filename (will add .csv if missing)"},
+                    "data": {
+                        "type": "array",
+                        "items": {"type": "array", "items": {"type": "string"}},
+                        "description": "2D array of data, first row should be headers"
+                    }
+                },
+                "required": ["sheet", "filename"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "save_current_sheet",
+            "description": "Save the current sheet as a CSV file in the data directory.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "sheet": {"type": "string"},
+                    "filename": {"type": "string", "description": "Optional filename, will auto-generate if not provided"}
+                },
+                "required": ["sheet"]
+            }
+        }
     }
 ]
 
@@ -251,13 +310,23 @@ def get_sheet_context(df: pd.DataFrame, sheet_name: str) -> str:
         empty_rows = len(df) - len(non_empty_rows)
         context_parts.append(f"\nNote: {empty_rows} empty rows detected")
     
+    # Add complete data context for smaller datasets (up to 50 rows)
+    if len(df) <= 50 and not df.empty:
+        context_parts.append(f"\n--- COMPLETE DATASET (for AI reference) ---")
+        context_parts.append(df.to_string(index=False, max_rows=50))
+        context_parts.append("--- END COMPLETE DATASET ---")
+    elif len(df) > 50:
+        context_parts.append(f"\n--- SAMPLE DATA (first 10 rows for AI reference) ---")
+        context_parts.append(df.head(10).to_string(index=False))
+        context_parts.append("--- END SAMPLE DATA ---")
+    
     return "\n".join(context_parts)
 
 
 def run_agent(user_msg: str, workbook: Dict[str, pd.DataFrame], current_sheet: str, chat_history: List[Dict] = None, model_name: str | None = None) -> str:
     """Run a single chat turn with function/tool calling and side‑effect the workbook."""
 
-    model = model_name or os.getenv("OPENAI_CHAT_MODEL") or os.getenv("OPENAI_MODEL") or "gpt-4o"
+    model = model_name or os.getenv("OPENAI_CHAT_MODEL") or os.getenv("OPENAI_MODEL") or "gpt-4-turbo-2024-04-09"
 
     # Get detailed context about the current sheet
     current_df = workbook.get(current_sheet, pd.DataFrame())
@@ -278,13 +347,56 @@ def run_agent(user_msg: str, workbook: Dict[str, pd.DataFrame], current_sheet: s
     messages.append({"role": "user", "content": user_msg})
 
     for iteration in range(6):  # small loop to allow a few tool calls
-        resp = client.chat.completions.create(
-            model=model,
-            messages=messages,
-            tools=TOOLS,
-            tool_choice="auto",
-            temperature=0.1,
-        )
+        try:
+            # Handle different model parameter requirements
+            if model.startswith("o1"):
+                # o1 models don't support temperature and use max_completion_tokens
+                resp = client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    tools=TOOLS,
+                    tool_choice="auto",
+                    max_completion_tokens=1000,
+                )
+            elif model.startswith("o3"):
+                # o3 models use max_completion_tokens
+                resp = client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    tools=TOOLS,
+                    tool_choice="auto",
+                    max_completion_tokens=1000,
+                    temperature=0.1,
+                )
+            else:
+                # Regular models use max_tokens
+                resp = client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    tools=TOOLS,
+                    tool_choice="auto",
+                    temperature=0.1,
+                )
+        except Exception as e:
+            error_str = str(e)
+            if "does not have access" in error_str or "model_not_found" in error_str:
+                raise Exception(f"Model {model} not accessible: {error_str}")
+            elif "Unsupported parameter" in error_str:
+                # Try again with different parameters
+                if "max_tokens" in error_str:
+                    # Model needs max_completion_tokens
+                    resp = client.chat.completions.create(
+                        model=model,
+                        messages=messages,
+                        tools=TOOLS,
+                        tool_choice="auto",
+                        max_completion_tokens=1000,
+                    )
+                else:
+                    raise e
+            else:
+                raise e
+            
         choice = resp.choices[0]
         msg = choice.message
 
@@ -308,28 +420,54 @@ def run_agent(user_msg: str, workbook: Dict[str, pd.DataFrame], current_sheet: s
             # execute each tool call and append results
             for tc in msg.tool_calls:
                 name = tc.function.name
-                args = json.loads(tc.function.arguments or "{}")
+                try:
+                    args = json.loads(tc.function.arguments or "{}")
+                except json.JSONDecodeError as e:
+                    out = f"Error parsing arguments for {name}: {e}"
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tc.id,
+                        "name": name,
+                        "content": out,
+                    })
+                    continue
+                    
                 # default sheet to current if not provided
                 if "sheet" in args and not args["sheet"]:
                     args["sheet"] = current_sheet
-                if name == "set_cell":
-                    out = tool_impl.tool_set_cell(workbook, args.get("sheet", current_sheet), args["cell"], str(args["value"]))
-                elif name == "get_cell":
-                    out = tool_impl.tool_get_cell(workbook, args.get("sheet", current_sheet), args["cell"])
-                elif name == "apply_formula":
-                    out = tool_impl.tool_apply_formula(workbook, args.get("sheet", current_sheet), args["cell"], args["formula"], bool(args.get("by_column", False)))
-                elif name == "sort_sheet":
-                    out = tool_impl.tool_sort(workbook, args.get("sheet", current_sheet), args["column"], bool(args.get("ascending", True)))
-                elif name == "filter_equals":
-                    out = tool_impl.tool_filter_equals(workbook, args.get("sheet", current_sheet), args["column"], str(args["value"]))
-                elif name == "add_sheet":
-                    out = tool_impl.tool_add_sheet(workbook, args["name"], int(args.get("rows", 20)), int(args.get("cols", 5)))
-                elif name == "make_chart":
-                    out = tool_impl.tool_make_chart(workbook, args.get("sheet", current_sheet), args["x"], args["ys"], args.get("kind", "line"))
-                elif name == "export_sheet":
-                    out = tool_impl.tool_export(workbook, args.get("sheet", current_sheet), args.get("fmt", "csv"))
-                else:
-                    out = f"Unknown tool {name}"
+                    
+                try:
+                    if name == "set_cell":
+                        out = tool_impl.tool_set_cell(workbook, args.get("sheet", current_sheet), args["cell"], str(args["value"]))
+                    elif name == "get_cell":
+                        out = tool_impl.tool_get_cell(workbook, args.get("sheet", current_sheet), args["cell"])
+                    elif name == "apply_formula":
+                        # Check if required parameters exist
+                        if "formula" not in args:
+                            out = "Error: 'formula' parameter is required for apply_formula tool"
+                        elif "cell" not in args:
+                            out = "Error: 'cell' parameter is required for apply_formula tool"
+                        else:
+                            out = tool_impl.tool_apply_formula(workbook, args.get("sheet", current_sheet), args["cell"], args["formula"], bool(args.get("by_column", False)))
+                    elif name == "sort_sheet":
+                        out = tool_impl.tool_sort(workbook, args.get("sheet", current_sheet), args["column"], bool(args.get("ascending", True)))
+                    elif name == "filter_equals":
+                        out = tool_impl.tool_filter_equals(workbook, args.get("sheet", current_sheet), args["column"], str(args["value"]))
+                    elif name == "add_sheet":
+                        out = tool_impl.tool_add_sheet(workbook, args["name"], int(args.get("rows", 20)), int(args.get("cols", 5)))
+                    elif name == "make_chart":
+                        out = tool_impl.tool_make_chart(workbook, args.get("sheet", current_sheet), args["x"], args["ys"], args.get("kind", "line"))
+                    elif name == "export_sheet":
+                        out = tool_impl.tool_export(workbook, args.get("sheet", current_sheet), args.get("fmt", "csv"))
+                    elif name == "create_csv_file":
+                        out = tool_impl.tool_create_csv_file(workbook, args.get("sheet", current_sheet), args["filename"], args.get("data"))
+                    elif name == "save_current_sheet":
+                        out = tool_impl.tool_save_current_sheet(workbook, args.get("sheet", current_sheet), args.get("filename"))
+                    else:
+                        out = f"Unknown tool {name}"
+                        
+                except Exception as e:
+                    out = f"Error executing {name}: {str(e)}"
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tc.id,
