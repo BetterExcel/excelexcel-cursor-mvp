@@ -124,6 +124,16 @@ input, select, textarea {
   border: 1px solid var(--xc-border) !important;
 }
 
+/* Specifically fix chat input textarea */
+textarea[data-testid="stChatInputTextArea"] {
+  background-color: var(--xc-surface) !important;
+  color: var(--xc-text) !important;
+  border: 1px solid var(--xc-border) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  z-index: 1000 !important;
+}
+
 /* Fix Streamlit's internal styling classes */
 .css-1cpxqw2, .css-1d391kg, .css-1cypcdb {
   background-color: var(--xc-surface) !important;
@@ -140,6 +150,28 @@ span, p, div {
   background-color: var(--xc-surface) !important;
   color: var(--xc-text) !important;
   border: 1px solid var(--xc-border) !important;
+}
+
+/* Force chat input container visibility */
+.st-emotion-cache-r0oa6g {
+  background-color: var(--xc-surface) !important;
+  border: 1px solid var(--xc-border) !important;
+}
+
+/* Force all chat input related elements to be visible */
+div[data-testid="stChatInput"] {
+  background-color: var(--xc-surface) !important;
+  color: var(--xc-text) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+div[data-testid="stChatInput"] textarea {
+  background-color: var(--xc-surface) !important;
+  color: var(--xc-text) !important;
+  border: 1px solid var(--xc-border) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 
 /* Fix file uploader styling */
@@ -400,11 +432,20 @@ if "active_ribbon_tab" not in st.session_state:
     st.session_state.active_ribbon_tab = "Home"
 if "ai_operations_log" not in st.session_state:
     st.session_state.ai_operations_log = []
+if "chat_processing" not in st.session_state:
+    st.session_state.chat_processing = False
 # Model selection state
 if "chat_model" not in st.session_state:
-    st.session_state.chat_model = os.getenv("OPENAI_CHAT_MODEL") or os.getenv("OPENAI_MODEL") or "gpt-4o"
+    st.session_state.chat_model = os.getenv("OPENAI_CHAT_MODEL") or os.getenv("OPENAI_MODEL") or "gpt-4-turbo-2024-04-09"
 if "model_probe" not in st.session_state:
     st.session_state.model_probe = None
+# Chat input counter for resetting input field
+if "chat_input_counter" not in st.session_state:
+    st.session_state.chat_input_counter = 0
+
+# Upload tracking to prevent duplicates
+if "last_uploaded_file" not in st.session_state:
+    st.session_state.last_uploaded_file = None
 
 # Ensure chat history exists for current sheet
 if st.session_state.current_sheet not in st.session_state.chat_histories:
@@ -462,16 +503,69 @@ if st.session_state.active_ribbon_tab == "Home":
     home_cols = st.columns([1,1,1,1,1])
     
     with home_cols[0]:
-        st.markdown("**📁 File**")
-        uploaded = st.file_uploader("Import", type=["csv", "xlsx"], label_visibility="collapsed")
-        if uploaded is not None:
+        st.markdown("**📁 File Operations**")
+        
+        # File Upload Section
+        uploaded = st.file_uploader("📤 Import File", type=["csv", "xlsx"], label_visibility="collapsed")
+        
+        # Check if this is a new file upload (prevent duplicates)
+        if uploaded is not None and uploaded != st.session_state.last_uploaded_file:
+            st.session_state.last_uploaded_file = uploaded
+            
             if uploaded.name.lower().endswith(".csv"):
                 df = pd.read_csv(uploaded)
             else:
                 df = pd.read_excel(uploaded)
+            
             set_sheet(st.session_state.workbook, st.session_state.current_sheet, df)
-            st.success("✅ File imported!")
+            
+            # Auto-save imported file to data directory
+            try:
+                import os
+                from datetime import datetime
+                
+                # Create data directory if it doesn't exist
+                data_dir = "data"
+                os.makedirs(data_dir, exist_ok=True)
+                
+                # Save with original filename (with timestamp if needed)
+                base_name = os.path.splitext(uploaded.name)[0]
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"{base_name}_imported_{timestamp}.csv"
+                filepath = os.path.join(data_dir, filename)
+                
+                # Save the imported data
+                df.to_csv(filepath, index=False)
+                
+                st.success(f"✅ File imported and saved as {filename}!")
+            except Exception as e:
+                st.success("✅ File imported!")
+                
             st.rerun()
+        
+        # File Selection from Data Directory
+        try:
+            import glob
+            data_files = glob.glob("data/*.csv")
+            if data_files:
+                # Get just the filenames without path
+                file_options = [os.path.basename(f) for f in data_files]
+                selected_file = st.selectbox("📂 Load Saved File", ["Select a file..."] + file_options, 
+                                           key="file_selector")
+                
+                if selected_file and selected_file != "Select a file..." and st.button("📖 Load Selected", key="load_file_btn"):
+                    filepath = os.path.join("data", selected_file)
+                    try:
+                        df = pd.read_csv(filepath)
+                        set_sheet(st.session_state.workbook, st.session_state.current_sheet, df)
+                        st.success(f"✅ Loaded {selected_file}!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Error loading file: {str(e)}")
+            else:
+                st.info("📂 No saved files found in data directory")
+        except Exception as e:
+            st.warning("Could not load file list")
     
     with home_cols[1]:
         st.markdown("**💾 Export**")
@@ -833,11 +927,41 @@ if not edited.equals(display_df):
 if show_df is base_df and not show_df.equals(base_df):
     set_sheet(st.session_state.workbook, st.session_state.current_sheet, show_df)
     
+    # Auto-save to data directory
+    try:
+        import os
+        from datetime import datetime
+        
+        # Create data directory if it doesn't exist
+        data_dir = "data"
+        os.makedirs(data_dir, exist_ok=True)
+        
+        # Auto-save with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{st.session_state.current_sheet}_autosave_{timestamp}.csv"
+        filepath = os.path.join(data_dir, filename)
+        
+        # Save the current sheet
+        show_df.to_csv(filepath, index=False)
+        
+        # Keep only last 5 autosave files per sheet to avoid clutter
+        import glob
+        pattern = os.path.join(data_dir, f"{st.session_state.current_sheet}_autosave_*.csv")
+        autosave_files = sorted(glob.glob(pattern))
+        if len(autosave_files) > 5:
+            for old_file in autosave_files[:-5]:
+                try:
+                    os.remove(old_file)
+                except:
+                    pass
+    except Exception as e:
+        pass  # Silently handle auto-save errors
+    
     # Log user edit
     timestamp = datetime.now().strftime("%H:%M:%S")
     st.session_state.ai_operations_log.append({
         'timestamp': timestamp,
-        'operation': "Manual data edit",
+        'operation': "Manual data edit (auto-saved)",
         'type': 'user'
     })
     
@@ -911,6 +1035,9 @@ with st.sidebar:
                 --xc-surface-2: #f6f8fa !important;
                 --xc-text: #111827 !important;
                 --xc-border: rgba(0,0,0,0.12) !important;
+                --xc-accent: #0066cc !important;
+                --xc-success: #28a745 !important;
+                --xc-warn: #ffc107 !important;
             }
             
             /* Override Streamlit's main app */
@@ -919,11 +1046,24 @@ with st.sidebar:
                 color: #111827 !important;
             }
             
-            /* Force all buttons to be visible */
-            .stButton > button {
+            /* Force all buttons to be visible - more specific selectors */
+            .stButton > button, button[kind="primary"], button[kind="secondary"] {
                 background-color: #ffffff !important;
                 color: #111827 !important;
-                border: 1px solid rgba(0,0,0,0.12) !important;
+                border: 1px solid rgba(0,0,0,0.2) !important;
+            }
+            
+            .stButton > button:hover {
+                background-color: #f6f8fa !important;
+                color: #111827 !important;
+                border: 1px solid #0066cc !important;
+            }
+            
+            /* Force primary buttons */
+            button[data-testid="baseButton-primary"], .stButton > button[type="primary"] {
+                background-color: #0066cc !important;
+                color: #ffffff !important;
+                border: 1px solid #0066cc !important;
             }
             
             /* Force selectboxes */
@@ -935,7 +1075,7 @@ with st.sidebar:
             .stSelectbox > div > div > div {
                 background-color: #ffffff !important;
                 color: #111827 !important;
-                border: 1px solid rgba(0,0,0,0.12) !important;
+                border: 1px solid rgba(0,0,0,0.2) !important;
             }
             
             /* Force selectbox options */
@@ -955,9 +1095,58 @@ with st.sidebar:
                 color: #111827 !important;
             }
             
+            .stSelectbox li:hover {
+                background-color: #f6f8fa !important;
+                color: #111827 !important;
+            }
+            
             /* Force text inputs */
             .stTextInput > div > div > input {
                 background-color: #ffffff !important;
+                color: #111827 !important;
+                border: 1px solid rgba(0,0,0,0.2) !important;
+            }
+            
+            /* Force number inputs */
+            .stNumberInput > div > div > input {
+                background-color: #ffffff !important;
+                color: #111827 !important;
+                border: 1px solid rgba(0,0,0,0.2) !important;
+            }
+            
+            /* Force text areas */
+            .stTextArea > div > div > textarea {
+                background-color: #ffffff !important;
+                color: #111827 !important;
+                border: 1px solid rgba(0,0,0,0.2) !important;
+            }
+            
+            /* Force data editor/grid styling */
+            .stDataFrame, .stDataFrame iframe, .stDataFrame table {
+                background-color: #ffffff !important;
+                color: #111827 !important;
+                border: 1px solid rgba(0,0,0,0.2) !important;
+            }
+            
+            .stDataFrame th, .stDataFrame td {
+                background-color: #ffffff !important;
+                color: #111827 !important;
+                border: 1px solid rgba(0,0,0,0.1) !important;
+            }
+            
+            .stDataFrame th {
+                background-color: #f6f8fa !important;
+                color: #111827 !important;
+                font-weight: 600 !important;
+            }
+            
+            /* Force data editor controls */
+            div[data-testid="stDataFrame"] {
+                background-color: #ffffff !important;
+                color: #111827 !important;
+            }
+            
+            div[data-testid="stDataFrame"] * {
                 color: #111827 !important;
             }
             
@@ -967,14 +1156,153 @@ with st.sidebar:
                 color: #111827 !important;
             }
             
-            /* Chat messages in light mode */
-            .user-message, .assistant-message, .ai-operation {
+            section[data-testid="stSidebar"] * {
                 color: #111827 !important;
             }
             
-            /* Fix any remaining dark elements */
-            div, span, p, h1, h2, h3, h4, h5, h6 {
+            /* Chat messages in light mode */
+            .user-message {
+                background: linear-gradient(135deg, #f6f8fa, #ffffff) !important;
                 color: #111827 !important;
+                border-left: 4px solid #0066cc !important;
+            }
+            
+            .assistant-message {
+                background: linear-gradient(135deg, #ffffff, #f6f8fa) !important;
+                color: #111827 !important;
+                border-left: 4px solid #28a745 !important;
+            }
+            
+            .ai-operation {
+                background: linear-gradient(135deg, rgba(255,193,7,0.15), rgba(255,193,7,0.05)) !important;
+                color: #111827 !important;
+                border-left: 3px solid #ffc107 !important;
+            }
+            
+            /* Chat container */
+            .chat-container {
+                background: #ffffff !important;
+                color: #111827 !important;
+                border: 1px solid rgba(0,0,0,0.2) !important;
+            }
+            
+            .chat-header {
+                background: linear-gradient(135deg, #0066cc, #0052a3) !important;
+                color: #ffffff !important;
+            }
+            
+            /* Force expander styling */
+            .streamlit-expanderHeader {
+                background-color: #f6f8fa !important;
+                color: #111827 !important;
+                border: 1px solid rgba(0,0,0,0.2) !important;
+            }
+            
+            .streamlit-expanderContent {
+                background-color: #ffffff !important;
+                color: #111827 !important;
+                border: 1px solid rgba(0,0,0,0.2) !important;
+            }
+            
+            /* Force file uploader */
+            .stFileUploader > div {
+                background-color: #ffffff !important;
+                color: #111827 !important;
+                border: 1px solid rgba(0,0,0,0.2) !important;
+            }
+            
+            /* Force checkbox and radio styling */
+            .stCheckbox > label, .stRadio > label {
+                color: #111827 !important;
+            }
+            
+            /* Force metric styling */
+            div[data-testid="metric-container"] {
+                background-color: #ffffff !important;
+                color: #111827 !important;
+                border: 1px solid rgba(0,0,0,0.2) !important;
+            }
+            
+            /* Force all remaining dark elements to light */
+            div, span, p, h1, h2, h3, h4, h5, h6, label {
+                color: #111827 !important;
+            }
+            
+            /* Force success/error/warning messages */
+            .stSuccess {
+                background-color: rgba(40, 167, 69, 0.1) !important;
+                color: #155724 !important;
+                border: 1px solid #28a745 !important;
+            }
+            
+            .stError {
+                background-color: rgba(220, 53, 69, 0.1) !important;
+                color: #721c24 !important;
+                border: 1px solid #dc3545 !important;
+            }
+            
+            .stWarning {
+                background-color: rgba(255, 193, 7, 0.1) !important;
+                color: #856404 !important;
+                border: 1px solid #ffc107 !important;
+            }
+            
+            .stInfo {
+                background-color: rgba(0, 102, 204, 0.1) !important;
+                color: #0c4a6e !important;
+                border: 1px solid #0066cc !important;
+            }
+            
+            /* Force plotly charts */
+            .js-plotly-plot {
+                background-color: #ffffff !important;
+            }
+            
+            /* Force any remaining Streamlit components */
+            .stMarkdown, .stCaption, .stCode {
+                color: #111827 !important;
+            }
+            
+            /* Force tabs */
+            .stTabs [data-baseweb="tab-list"] {
+                background-color: #f6f8fa !important;
+            }
+            
+            .stTabs [data-baseweb="tab"] {
+                background-color: #ffffff !important;
+                color: #111827 !important;
+                border: 1px solid rgba(0,0,0,0.2) !important;
+            }
+            
+            .stTabs [data-baseweb="tab"]:hover {
+                background-color: #f6f8fa !important;
+                color: #111827 !important;
+            }
+            
+            /* Force spinner */
+            .stSpinner {
+                color: #0066cc !important;
+            }
+            
+            /* Override any remaining dark backgrounds */
+            [data-testid="stAppViewContainer"] {
+                background-color: #ffffff !important;
+            }
+            
+            [data-testid="stHeader"] {
+                background-color: #ffffff !important;
+            }
+            
+            /* Force all input fields to be visible */
+            input, textarea, select {
+                background-color: #ffffff !important;
+                color: #111827 !important;
+                border: 1px solid rgba(0,0,0,0.2) !important;
+            }
+            
+            input:focus, textarea:focus, select:focus {
+                border-color: #0066cc !important;
+                box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2) !important;
             }
             </style>
             """,
@@ -1038,6 +1366,50 @@ with st.sidebar:
             .stTextInput > div > div > input {
                 background-color: #161b22 !important;
                 color: #e6edf3 !important;
+                border: 1px solid rgba(255,255,255,0.18) !important;
+            }
+            
+            /* Force number inputs */
+            .stNumberInput > div > div > input {
+                background-color: #161b22 !important;
+                color: #e6edf3 !important;
+                border: 1px solid rgba(255,255,255,0.18) !important;
+            }
+            
+            /* Force text areas */
+            .stTextArea > div > div > textarea {
+                background-color: #161b22 !important;
+                color: #e6edf3 !important;
+                border: 1px solid rgba(255,255,255,0.18) !important;
+            }
+            
+            /* Force data editor/grid styling */
+            .stDataFrame, .stDataFrame iframe, .stDataFrame table {
+                background-color: #161b22 !important;
+                color: #e6edf3 !important;
+                border: 1px solid rgba(255,255,255,0.18) !important;
+            }
+            
+            .stDataFrame th, .stDataFrame td {
+                background-color: #161b22 !important;
+                color: #e6edf3 !important;
+                border: 1px solid rgba(255,255,255,0.1) !important;
+            }
+            
+            .stDataFrame th {
+                background-color: #0e1117 !important;
+                color: #e6edf3 !important;
+                font-weight: 600 !important;
+            }
+            
+            /* Force data editor controls */
+            div[data-testid="stDataFrame"] {
+                background-color: #161b22 !important;
+                color: #e6edf3 !important;
+            }
+            
+            div[data-testid="stDataFrame"] * {
+                color: #e6edf3 !important;
             }
             
             /* Force sidebar styling */
@@ -1046,14 +1418,153 @@ with st.sidebar:
                 color: #e6edf3 !important;
             }
             
-            /* Chat messages in dark mode */
-            .user-message, .assistant-message, .ai-operation {
+            section[data-testid="stSidebar"] * {
                 color: #e6edf3 !important;
             }
             
-            /* Fix any remaining light elements */
-            div, span, p, h1, h2, h3, h4, h5, h6 {
+            /* Chat messages in dark mode */
+            .user-message {
+                background: linear-gradient(135deg, #0e1117, #161b22) !important;
                 color: #e6edf3 !important;
+                border-left: 4px solid #0066cc !important;
+            }
+            
+            .assistant-message {
+                background: linear-gradient(135deg, #161b22, #0e1117) !important;
+                color: #e6edf3 !important;
+                border-left: 4px solid #28a745 !important;
+            }
+            
+            .ai-operation {
+                background: linear-gradient(135deg, rgba(255,193,7,0.15), rgba(255,193,7,0.05)) !important;
+                color: #e6edf3 !important;
+                border-left: 3px solid #ffc107 !important;
+            }
+            
+            /* Chat container */
+            .chat-container {
+                background: #161b22 !important;
+                color: #e6edf3 !important;
+                border: 1px solid rgba(255,255,255,0.18) !important;
+            }
+            
+            .chat-header {
+                background: linear-gradient(135deg, #0066cc, #0052a3) !important;
+                color: #ffffff !important;
+            }
+            
+            /* Force expander styling */
+            .streamlit-expanderHeader {
+                background-color: #161b22 !important;
+                color: #e6edf3 !important;
+                border: 1px solid rgba(255,255,255,0.18) !important;
+            }
+            
+            .streamlit-expanderContent {
+                background-color: #161b22 !important;
+                color: #e6edf3 !important;
+                border: 1px solid rgba(255,255,255,0.18) !important;
+            }
+            
+            /* Force file uploader */
+            .stFileUploader > div {
+                background-color: #161b22 !important;
+                color: #e6edf3 !important;
+                border: 1px solid rgba(255,255,255,0.18) !important;
+            }
+            
+            /* Force checkbox and radio styling */
+            .stCheckbox > label, .stRadio > label {
+                color: #e6edf3 !important;
+            }
+            
+            /* Force metric styling */
+            div[data-testid="metric-container"] {
+                background-color: #161b22 !important;
+                color: #e6edf3 !important;
+                border: 1px solid rgba(255,255,255,0.18) !important;
+            }
+            
+            /* Force all remaining light elements */
+            div, span, p, h1, h2, h3, h4, h5, h6, label {
+                color: #e6edf3 !important;
+            }
+            
+            /* Force success/error/warning messages */
+            .stSuccess {
+                background-color: rgba(40, 167, 69, 0.1) !important;
+                color: #155724 !important;
+                border: 1px solid #28a745 !important;
+            }
+            
+            .stError {
+                background-color: rgba(220, 53, 69, 0.1) !important;
+                color: #721c24 !important;
+                border: 1px solid #dc3545 !important;
+            }
+            
+            .stWarning {
+                background-color: rgba(255, 193, 7, 0.1) !important;
+                color: #856404 !important;
+                border: 1px solid #ffc107 !important;
+            }
+            
+            .stInfo {
+                background-color: rgba(0, 102, 204, 0.1) !important;
+                color: #0c4a6e !important;
+                border: 1px solid #0066cc !important;
+            }
+            
+            /* Force plotly charts */
+            .js-plotly-plot {
+                background-color: #161b22 !important;
+            }
+            
+            /* Force any remaining Streamlit components */
+            .stMarkdown, .stCaption, .stCode {
+                color: #e6edf3 !important;
+            }
+            
+            /* Force tabs */
+            .stTabs [data-baseweb="tab-list"] {
+                background-color: #161b22 !important;
+            }
+            
+            .stTabs [data-baseweb="tab"] {
+                background-color: #161b22 !important;
+                color: #e6edf3 !important;
+                border: 1px solid rgba(255,255,255,0.18) !important;
+            }
+            
+            .stTabs [data-baseweb="tab"]:hover {
+                background-color: #0e1117 !important;
+                color: #e6edf3 !important;
+            }
+            
+            /* Force spinner */
+            .stSpinner {
+                color: #0066cc !important;
+            }
+            
+            /* Override any remaining light backgrounds */
+            [data-testid="stAppViewContainer"] {
+                background-color: #0e1117 !important;
+            }
+            
+            [data-testid="stHeader"] {
+                background-color: #0e1117 !important;
+            }
+            
+            /* Force all input fields to be visible */
+            input, textarea, select {
+                background-color: #161b22 !important;
+                color: #e6edf3 !important;
+                border: 1px solid rgba(255,255,255,0.18) !important;
+            }
+            
+            input:focus, textarea:focus, select:focus {
+                border-color: #0066cc !important;
+                box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2) !important;
             }
             </style>
             """,
@@ -1069,6 +1580,48 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     
     st.markdown(f"**📋 Active Sheet:** `{st.session_state.current_sheet}`")
+    
+    # Show AI Context (what the AI can see about the current sheet)
+    with st.expander("🔍 AI Context (What AI knows about current sheet)", expanded=False):
+        current_df = get_sheet(st.session_state.workbook, st.session_state.current_sheet)
+        
+        if current_df.empty:
+            st.info("📄 Sheet is empty - AI knows this sheet has no data yet")
+        else:
+            st.markdown("**📊 Sheet Overview:**")
+            st.markdown(f"• **Dimensions:** {len(current_df)} rows × {len(current_df.columns)} columns")
+            st.markdown(f"• **Columns:** {', '.join(current_df.columns.tolist())}")
+            
+            # Show column details that AI can see
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("**📋 Column Details:**")
+                for col in current_df.columns:
+                    non_null = current_df[col].count()
+                    total = len(current_df)
+                    dtype = current_df[col].dtype
+                    st.markdown(f"• **{col}:** {dtype} ({non_null}/{total} values)")
+            
+            with col2:
+                st.markdown("**🔢 Sample Data (what AI sees):**")
+                for col in current_df.columns:
+                    sample_values = current_df[col].dropna().head(2).tolist()
+                    if sample_values:
+                        sample_str = ", ".join([str(v) for v in sample_values])
+                        st.markdown(f"• **{col}:** {sample_str}...")
+                    else:
+                        st.markdown(f"• **{col}:** (no data)")
+            
+            # Show numeric summaries that AI can see
+            numeric_cols = current_df.select_dtypes(include=['number']).columns.tolist()
+            if numeric_cols:
+                st.markdown("**📈 Numeric Data Insights:**")
+                for col in numeric_cols[:2]:  # Show first 2 numeric columns
+                    series = pd.to_numeric(current_df[col], errors='coerce').dropna()
+                    if len(series) > 0:
+                        st.markdown(f"• **{col}:** range {series.min():.1f} to {series.max():.1f}, avg {series.mean():.1f}")
+        
+        st.info("💡 **Tip:** The AI uses this context to provide smarter recommendations and understand your data better!")
     
     # Model selection and probing
     with st.expander("⚙️ Model Settings", expanded=False):
@@ -1151,6 +1704,42 @@ with st.sidebar:
     # Enhanced chat input with suggestions
     st.markdown("### 💬 Ask AI Assistant")
     
+    # Show chat processing status
+    if "chat_processing" in st.session_state and st.session_state.chat_processing:
+        st.info("🔄 AI is thinking... Please wait.")
+        st.markdown("""
+        <div style="display: flex; align-items: center; margin: 10px 0;">
+            <div style="
+                width: 20px; 
+                height: 20px; 
+                border: 3px solid #f3f3f3; 
+                border-top: 3px solid #3498db; 
+                border-radius: 50%; 
+                animation: spin 1s linear infinite;
+                margin-right: 10px;
+            "></div>
+            <span>Processing your request...</span>
+        </div>
+        <style>
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        </style>
+        """, unsafe_allow_html=True)
+    
+    # Show message confirmation if available
+    if "last_message_sent" in st.session_state:
+        st.success(st.session_state.last_message_sent)
+        # Clear the message after showing it once when not processing
+        if not st.session_state.get("chat_processing", False):
+            del st.session_state.last_message_sent
+    
+    # Show AI completion message if available
+    if "ai_response_complete" in st.session_state:
+        st.success(st.session_state.ai_response_complete)
+        del st.session_state.ai_response_complete
+    
     # Quick action buttons
     st.markdown("**🚀 Quick Actions:**")
     quick_actions = st.columns(2)
@@ -1181,52 +1770,150 @@ with st.sidebar:
     if initial_value:
         st.session_state.quick_message = ""  # Clear after use
     
-    user_msg = st.chat_input(placeholder, key="ai_chat_input")
+    # Working chat input using text_input + button (replacing st.chat_input)
+    st.markdown("### 💬 Chat with AI Assistant")
     
-    # Use quick message if no manual input
-    if not user_msg and initial_value:
-        user_msg = initial_value
+    # Create input area
+    input_col1, input_col2 = st.columns([4, 1])
     
+    with input_col1:
+        user_input = st.text_input(
+            "Message:", 
+            key=f"user_chat_message_{st.session_state.chat_input_counter}", 
+            placeholder=placeholder,
+            label_visibility="collapsed"
+        )
+    
+    with input_col2:
+        send_clicked = st.button("💬 Send", key="send_chat", type="primary", use_container_width=True)
+    
+    # Handle Enter key submission with JavaScript
+    if user_input:
+        st.markdown(f"""
+        <script>
+        document.addEventListener('keydown', function(event) {{
+            if (event.key === 'Enter' && document.activeElement.getAttribute('data-testid') === 'stTextInput') {{
+                const sendButton = document.querySelector('[data-testid="stButton"] button');
+                if (sendButton) {{
+                    sendButton.click();
+                }}
+            }}
+        }});
+        </script>
+        """, unsafe_allow_html=True)
+    
+    # Handle quick messages first
+    if initial_value and initial_value.strip():
+        user_msg = initial_value.strip()
+    
+    # Process message when Send is clicked
+    elif send_clicked and user_input and user_input.strip():
+        user_msg = user_input.strip()
+        # Increment counter to reset input field on next render
+        st.session_state.chat_input_counter += 1
+    else:
+        user_msg = None
+    
+    # CRITICAL: Process the message immediately if we have one
     if user_msg:
-        # Add user message to history
+        # Store confirmation message in session state to persist through rerun
+        st.session_state.last_message_sent = f"✅ Message sent: {user_msg[:50]}{'...' if len(user_msg) > 50 else ''}"
+        
+        # Add to chat history
         st.session_state.chat_histories[st.session_state.current_sheet].append({
             "role": "user", 
             "content": user_msg
         })
         
-        # Show working status
-        with st.spinner("🔄 AI is working..."):
-            try:
-                # Get chat history for context
-                chat_history = st.session_state.chat_histories[st.session_state.current_sheet]
-                
-                # Call the agent with context and selected model
-                reply = run_agent(
-                    user_msg=user_msg,
-                    workbook=st.session_state.workbook,
-                    current_sheet=st.session_state.current_sheet,
-                    chat_history=chat_history[:-1],  # Exclude the current message
-                    model_name=st.session_state.chat_model
-                )
-                
-                # Log AI operation
-                timestamp = datetime.now().strftime("%H:%M:%S")
-                st.session_state.ai_operations_log.append({
-                    'timestamp': timestamp,
-                    'operation': f"AI processed: {user_msg[:50]}...",
-                    'type': 'ai'
-                })
-                
-            except Exception as e:
-                reply = f"❌ Agent error: {e}. Please check your OpenAI API key and network connection."
+        # Set processing flag
+        st.session_state.chat_processing = True
         
-        # Add assistant response to history
-        st.session_state.chat_histories[st.session_state.current_sheet].append({
-            "role": "assistant", 
-            "content": reply
+        # Clear any quick message state
+        if "quick_message" in st.session_state:
+            del st.session_state["quick_message"]
+        
+        # Log the user message
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        st.session_state.ai_operations_log.append({
+            'timestamp': timestamp,
+            'operation': f"User: {user_msg[:50]}{'...' if len(user_msg) > 50 else ''}",
+            'type': 'user'
         })
         
+        # Force immediate rerun to process AI response
         st.rerun()
+        
+    # Process AI response if we're in processing state
+    if st.session_state.get("chat_processing", False):
+        # Get the last user message to process
+        current_chat = st.session_state.chat_histories[st.session_state.current_sheet]
+        if current_chat and current_chat[-1]["role"] == "user":
+            user_msg_to_process = current_chat[-1]["content"]
+            
+            # Show processing indicator
+            with st.spinner(f"🤖 AI is processing: {user_msg_to_process[:30]}..."):
+                try:
+                    # Get chat history for context (excluding the message being processed)
+                    chat_history = current_chat[:-1]
+                    
+                    # Validate model is accessible
+                    current_model = st.session_state.chat_model
+                    if not current_model:
+                        current_model = "gpt-4-turbo-2024-04-09"
+                        st.session_state.chat_model = current_model
+                    
+                    # Call the agent with context and selected model
+                    reply = run_agent(
+                        user_msg=user_msg_to_process,
+                        workbook=st.session_state.workbook,
+                        current_sheet=st.session_state.current_sheet,
+                        chat_history=chat_history,
+                        model_name=current_model
+                    )
+                    
+                    # Log AI operation
+                    timestamp = datetime.now().strftime("%H:%M:%S")
+                    st.session_state.ai_operations_log.append({
+                        'timestamp': timestamp,
+                        'operation': f"AI processed: {user_msg_to_process[:50]}...",
+                        'type': 'ai'
+                    })
+                    
+                except Exception as e:
+                    error_msg = str(e)
+                    
+                    # Try fallback model
+                    if "model_not_found" in error_msg or "does not have access" in error_msg:
+                        try:
+                            st.warning(f"⚠️ Trying fallback model...")
+                            fallback_model = "gpt-4-turbo-2024-04-09"
+                            reply = run_agent(
+                                user_msg=user_msg_to_process,
+                                workbook=st.session_state.workbook,
+                                current_sheet=st.session_state.current_sheet,
+                                chat_history=chat_history,
+                                model_name=fallback_model
+                            )
+                            st.session_state.chat_model = fallback_model
+                        except Exception as e2:
+                            reply = f"❌ Error: {str(e2)[:100]}..."
+                    else:
+                        reply = f"❌ Error: {error_msg[:100]}..."
+                
+                # Add assistant response to history
+                st.session_state.chat_histories[st.session_state.current_sheet].append({
+                    "role": "assistant",
+                    "content": reply
+                })
+                
+                # Clear processing flag
+                st.session_state.chat_processing = False
+                
+                # Store completion message in session state
+                st.session_state.ai_response_complete = "✅ AI response completed!"
+                
+                # Rerun to show the AI response
+                st.rerun()
 
 # Status bar at bottom
 st.divider()

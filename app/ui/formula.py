@@ -111,7 +111,7 @@ def evaluate_formula(expr: str, df: pd.DataFrame, current_row: int | None = None
 
     # Date/Time functions
     def fn_today(m):
-        return str(datetime.now().strftime('%Y-%m-%d'))
+        return f'"{datetime.now().strftime("%Y-%m-%d")}"'  # Return quoted string to avoid syntax error
 
     def fn_now(m):
         return str(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
@@ -128,8 +128,61 @@ def evaluate_formula(expr: str, df: pd.DataFrame, current_row: int | None = None
     # Text functions
     def fn_concatenate(m):
         # CONCATENATE(text1, text2, ...)
-        args = m.group(1).split(',')
-        result = ''.join(arg.strip().strip('"\'') for arg in args)
+        # First, let's extract the arguments more carefully
+        arg_str = m.group(1)
+        
+        # Split by comma but respect quotes
+        args = []
+        current_arg = ""
+        in_quotes = False
+        quote_char = None
+        paren_depth = 0
+        
+        i = 0
+        while i < len(arg_str):
+            char = arg_str[i]
+            
+            if char in ['"', "'"] and not in_quotes:
+                in_quotes = True
+                quote_char = char
+                current_arg += char
+            elif char == quote_char and in_quotes:
+                in_quotes = False
+                quote_char = None
+                current_arg += char
+            elif char == '(' and not in_quotes:
+                paren_depth += 1
+                current_arg += char
+            elif char == ')' and not in_quotes:
+                paren_depth -= 1
+                current_arg += char
+            elif char == ',' and not in_quotes and paren_depth == 0:
+                # End of argument
+                args.append(current_arg.strip())
+                current_arg = ""
+            else:
+                current_arg += char
+            i += 1
+        
+        # Add the last argument
+        if current_arg.strip():
+            args.append(current_arg.strip())
+        
+        # Process each argument
+        result_parts = []
+        for arg in args:
+            # Check if it's a cell reference (no quotes, matches cell pattern)
+            if re.match(r'^[A-Za-z]+\d+$', arg):
+                cell_val = get_cell_value(df, arg)
+                if cell_val is not np.nan:
+                    result_parts.append(str(cell_val))
+                else:
+                    result_parts.append('')
+            else:
+                # It's a literal string, remove quotes
+                result_parts.append(arg.strip('"\''))
+        
+        result = ''.join(result_parts)
         return f'"{result}"'
 
     def fn_left(m):
@@ -231,17 +284,30 @@ def evaluate_formula(expr: str, df: pd.DataFrame, current_row: int | None = None
     # Replace A1 refs with values
     def repl_cell(m):
         val = get_cell_value(df, m.group(0))
-        return str(float(val)) if _is_number(val) else "nan"
+        if _is_number(val):
+            return str(float(val))
+        elif isinstance(val, str):
+            return f'"{val}"'  # Quote string values for proper handling in expressions
+        else:
+            return "nan"
 
     expr = re.sub(r"\b[A-Za-z]+\d+\b", repl_cell, expr)
 
     # Safe arithmetic eval
     allowed = {k: getattr(math, k) for k in ["sqrt", "ceil", "floor", "exp", "log", "log10", "sin", "cos", "tan"]}
     allowed.update({"nan": float('nan')})
+    
+    # Check for unknown functions before evaluation
+    if re.search(r'[A-Z_]+\(', expr, re.I):
+        # There are still function calls that weren't processed
+        unknown_funcs = re.findall(r'([A-Z_]+)\(', expr, re.I)
+        if unknown_funcs:
+            raise ValueError(f"Unknown function(s): {', '.join(set(unknown_funcs))}")
+    
     try:
         return eval(expr, {"__builtins__": {}}, allowed)
-    except Exception:
-        return float('nan')
+    except Exception as e:
+        raise ValueError(f"Formula evaluation error: {str(e)}")
 
 
 def _is_number(x) -> bool:
