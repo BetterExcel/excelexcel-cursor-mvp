@@ -443,6 +443,10 @@ if "model_probe" not in st.session_state:
 if "chat_input_counter" not in st.session_state:
     st.session_state.chat_input_counter = 0
 
+# Upload tracking to prevent duplicates
+if "last_uploaded_file" not in st.session_state:
+    st.session_state.last_uploaded_file = None
+
 # Ensure chat history exists for current sheet
 if st.session_state.current_sheet not in st.session_state.chat_histories:
     st.session_state.chat_histories[st.session_state.current_sheet] = []
@@ -499,9 +503,15 @@ if st.session_state.active_ribbon_tab == "Home":
     home_cols = st.columns([1,1,1,1,1])
     
     with home_cols[0]:
-        st.markdown("**📁 File**")
-        uploaded = st.file_uploader("Import", type=["csv", "xlsx"], label_visibility="collapsed")
-        if uploaded is not None:
+        st.markdown("**📁 File Operations**")
+        
+        # File Upload Section
+        uploaded = st.file_uploader("📤 Import File", type=["csv", "xlsx"], label_visibility="collapsed")
+        
+        # Check if this is a new file upload (prevent duplicates)
+        if uploaded is not None and uploaded != st.session_state.last_uploaded_file:
+            st.session_state.last_uploaded_file = uploaded
+            
             if uploaded.name.lower().endswith(".csv"):
                 df = pd.read_csv(uploaded)
             else:
@@ -532,6 +542,30 @@ if st.session_state.active_ribbon_tab == "Home":
                 st.success("✅ File imported!")
                 
             st.rerun()
+        
+        # File Selection from Data Directory
+        try:
+            import glob
+            data_files = glob.glob("data/*.csv")
+            if data_files:
+                # Get just the filenames without path
+                file_options = [os.path.basename(f) for f in data_files]
+                selected_file = st.selectbox("📂 Load Saved File", ["Select a file..."] + file_options, 
+                                           key="file_selector")
+                
+                if selected_file and selected_file != "Select a file..." and st.button("📖 Load Selected", key="load_file_btn"):
+                    filepath = os.path.join("data", selected_file)
+                    try:
+                        df = pd.read_csv(filepath)
+                        set_sheet(st.session_state.workbook, st.session_state.current_sheet, df)
+                        st.success(f"✅ Loaded {selected_file}!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Error loading file: {str(e)}")
+            else:
+                st.info("📂 No saved files found in data directory")
+        except Exception as e:
+            st.warning("Could not load file list")
     
     with home_cols[1]:
         st.markdown("**💾 Export**")

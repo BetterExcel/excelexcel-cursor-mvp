@@ -26,11 +26,12 @@ class TestIntegration(unittest.TestCase):
         
         # Apply formula to calculate profit
         for i in range(len(sheet)):
-            profit = evaluate_formula('=A1-B1', sheet, current_row=i)
+            row_num = i + 1  # Convert to Excel row numbering (1-based)
+            profit = evaluate_formula(f'=A{row_num}-B{row_num}', sheet)
             sheet.at[i, 'Profit'] = profit
         
-        # Verify calculations
-        expected_profits = [50, 100, 150, 200, 250]
+        # Verify calculations (Revenue - Cost = Profit)
+        expected_profits = [50, 100, 150, 200, 250]  # [100-50, 200-100, 300-150, 400-200, 500-250]
         for i, expected in enumerate(expected_profits):
             self.assertEqual(sheet.at[i, 'Profit'], expected)
     
@@ -64,12 +65,13 @@ class TestIntegration(unittest.TestCase):
         # Apply formula
         for i in range(2):
             if pd.notna(sheet.at[i, 'A']) and pd.notna(sheet.at[i, 'B']):
-                result = evaluate_formula('=A1+B1', sheet, current_row=i)
+                row_num = i + 1  # Convert to Excel row numbering
+                result = evaluate_formula(f'=A{row_num}+B{row_num}', sheet)
                 sheet.at[i, 'C'] = result
         
         # Verify results
-        self.assertEqual(sheet.at[0, 'C'], 30)
-        self.assertEqual(sheet.at[1, 'C'], 70)
+        self.assertEqual(sheet.at[0, 'C'], 30)  # 10 + 20
+        self.assertEqual(sheet.at[1, 'C'], 70)  # 30 + 40
 
 
 if __name__ == '__main__':

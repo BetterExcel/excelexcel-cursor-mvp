@@ -119,3 +119,5 @@ test_api.py
 
 # Streamlit
 .streamlit/
+
+data/
