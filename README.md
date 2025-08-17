@@ -253,16 +253,6 @@ python data_manager.py clean    # Remove duplicate files
 python data_manager.py show sample.csv  # Preview file contents
 ```
 
-## 🤝 Contributing
-
-1. **Fork the repository**
-2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
-3. **Make your changes** with proper testing
-4. **Run the test suite**: `python -m pytest tests/ -v`
-5. **Commit your changes**: `git commit -m 'Add amazing feature'`
-6. **Push to the branch**: `git push origin feature/amazing-feature`
-7. **Open a Pull Request**
-
 ### Development Guidelines
 
 - **Code Quality**: Follow PEP 8 style guidelines
@@ -293,12 +283,6 @@ python data_manager.py show sample.csv  # Preview file contents
 
 This project is open source and available under the [MIT License](LICENSE).
 
-## 🙏 Acknowledgments
-
-- **OpenAI**: For providing the GPT-4-Turbo API that powers the AI assistant
-- **Streamlit**: For the excellent web framework that makes this application possible
-- **Pandas & NumPy**: For robust data processing capabilities
-- **Plotly**: For interactive data visualization components
 
 ## ⚠️ Disclaimer
 
@@ -310,6 +294,3 @@ This is an MVP (Minimum Viable Product) demonstration showcasing AI-powered spre
 - **Issues**: [Report bugs or request features](https://github.com/paramshah07/excelexcel-cursor-mvp/issues)
 - **Pull Requests**: [Contribute to the project](https://github.com/paramshah07/excelexcel-cursor-mvp/pulls)
 
----
-
-Built with ❤️ by the Excel-Cursor team
