@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Debug script to test agent functionality
+Test script to check if agent is calling tools properly
 """
 import sys
 import os
@@ -12,22 +12,17 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def test_agent():
-    print("🔍 Testing agent functionality...")
+def test_data_generation():
+    print("🔍 Testing data generation request...")
     
-    # Create simple test workbook
-    workbook = {
-        'Sheet1': pd.DataFrame({
-            'A': [1, 2, 3, 4, 5],
-            'B': [10, 20, 30, 40, 50],
-            'C': ['a', 'b', 'c', 'd', 'e']
-        })
-    }
+    # Create properly initialized workbook
+    from app.services.workbook import new_workbook
+    workbook = new_workbook()
     
     try:
-        print("📤 Sending message to agent...")
+        print("📤 Sending data generation request...")
         response = run_agent(
-            user_msg="Hello, what data do you see in my sheet?",
+            user_msg="Create me stock data for AAPL for 5 days. Add 4 columns: Date, Price, News, and Market Cap. Fill in these columns with random but sensible data.",
             workbook=workbook,
             current_sheet='Sheet1',
             chat_history=[],
@@ -35,6 +30,8 @@ def test_agent():
         )
         print("✅ Agent Response:")
         print(response)
+        print("\n📊 Workbook after operation:")
+        print(workbook['Sheet1'])
         return True
     except Exception as e:
         print(f"❌ Agent Error: {e}")
@@ -43,8 +40,4 @@ def test_agent():
         return False
 
 if __name__ == "__main__":
-    success = test_agent()
-    if success:
-        print("\n✅ Agent test passed!")
-    else:
-        print("\n❌ Agent test failed!")
+    test_data_generation()

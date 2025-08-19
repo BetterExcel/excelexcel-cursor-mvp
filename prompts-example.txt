@@ -1,0 +1,4 @@
+1) Create me stock data for AAPL for 30 days for the month of July 2025,  add 4 columns Date, price, News and market Cap. Fill in these columns with random but sensible data
+-- You Can ask it to do some calculations on the data, model will use Formulae available to it.
+
+2) 
