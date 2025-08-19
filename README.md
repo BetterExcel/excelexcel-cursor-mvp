@@ -37,17 +37,21 @@ A powerful Excel‑like web application with advanced AI-powered spreadsheet ass
 - **Pivot Tables**: Data aggregation and analysis (coming soon)
 
 ### 🤖 **AI-Powered Assistant**
-- **GPT-4-Turbo Integration**: Advanced AI agent with function calling
+- **GPT-4-Turbo Integration**: Advanced AI agent with 30-second timeout and enhanced error handling
 - **Natural Language Processing**: Conversational interface for spreadsheet operations
 - **Contextual Understanding**: AI knows current sheet structure and data
+- **11 Specialized Tools**: Complete spreadsheet manipulation toolkit including data generation
+- **Sample Data Generation**: Create realistic test data with contextual content (dates, currencies, text)
 - **Operation Logging**: Track all AI operations with timestamps
 - **Model Selection**: Support for multiple OpenAI models
+- **Robust Error Handling**: Graceful handling of invalid operations and API timeouts
 
 ### 🛠 **Development Features**
-- **Comprehensive Testing**: 19 unit tests covering all core functionality
+- **Comprehensive Testing**: 36+ unit tests covering all core functionality including AI tools
 - **Professional Environment**: Modern `.venv` setup with proper dependency management
 - **Error Handling**: Robust error management with user-friendly messages
 - **Performance Optimization**: Efficient data processing and memory management
+- **AI Tool Testing**: Dedicated test suite for AI agent functionality and error handling
 
 ## Prerequisites
 
@@ -126,10 +130,30 @@ Use the sidebar chat to interact with the AI agent using natural language:
 - *"Calculate running totals in column C"*
 - *"Find the maximum value in column D"*
 
+**Data Generation:**
+- *"Create me stock data for AAPL for 30 days with Date, Price, News and Volume columns"*
+- *"Generate sample sales data with 50 rows including customer info and purchase amounts"*
+- *"Fill this sheet with realistic employee data - names, departments, and salaries"*
+
 **File Operations:**
 - *"Export the current sheet as CSV"*
 - *"Create a new sheet called 'Analysis'"*
 - *"Load the sample data from the data directory"*
+
+**Advanced Operations:**
+- *"Sort the data by date, then by amount in descending order"*
+- *"Calculate monthly totals and create a summary table"*
+- *"Find all rows where sales are above average and highlight them"*
+
+### 📚 **Example Prompts**
+
+The project includes `prompts-example.txt` with tested prompts that demonstrate the AI capabilities:
+
+```text
+1) Create me stock data for AAPL for 30 days for the month of July 2025, 
+   add 4 columns Date, price, News and market Cap. 
+   Fill in these columns with random but sensible data
+```
 
 ## 📁 Project Structure
 
@@ -137,25 +161,33 @@ Use the sidebar chat to interact with the AI agent using natural language:
 excelexcel-cursor-mvp/
 ├── app/
 │   ├── agent/              # AI agent implementation
-│   │   ├── agent.py       # Main AI agent with function calling
-│   │   └── tools.py       # AI tool definitions and handlers
+│   │   ├── agent.py       # Main AI agent with GPT-4-Turbo and function calling
+│   │   └── tools.py       # AI tool definitions and spreadsheet operations
 │   ├── services/          # Core spreadsheet logic
 │   │   └── workbook.py    # Workbook and sheet management
 │   ├── ui/                # UI components and formulas
 │   │   ├── app.py         # Original UI components
 │   │   └── formula.py     # Enhanced formula evaluation engine
 │   └── charts.py          # Interactive chart generation with Plotly
-├── tests/                 # Comprehensive test suite
-│   ├── test_agent.py      # AI agent functionality tests
-│   ├── test_formula.py    # Formula engine tests
-│   ├── test_integration.py# End-to-end integration tests
-│   └── test_workbook.py   # Core workbook operation tests
+├── tests/                 # Comprehensive test suite (36+ tests)
+│   ├── test_agent.py      # AI agent functionality tests (7 tests)
+│   ├── test_agent_tools.py # AI tool functionality tests (19 tests)
+│   ├── test_formulas.py   # Formula engine tests (8 tests)
+│   ├── test_integration.py# End-to-end integration tests (3 tests)
+│   ├── test_workbook.py   # Core workbook operation tests (5 tests)
+│   ├── debug_agent_tools.py # Debug utilities for agent development
+│   ├── test_data_generation.py # Data generation testing utilities
+│   ├── test_final.py      # Final integration validation
+│   ├── test_function_calling.py # Function calling mechanism tests
+│   ├── test_tool_calling.py # Tool calling validation
+│   └── run_tests.py       # Test runner script
 ├── data/                  # Auto-managed data directory
 │   ├── sample.csv         # Sample dataset
 │   └── *.csv             # User uploaded and auto-saved files
 ├── .venv/                 # Python virtual environment
 ├── streamlit_app_enhanced.py  # Main application entry point
 ├── data_manager.py        # Data directory management utility
+├── prompts-example.txt    # Example prompts for testing AI functionality
 ├── run_app.sh            # Application startup script
 ├── SETUP_STATUS.md       # Development environment documentation
 ├── requirements.txt      # Python dependencies
@@ -213,13 +245,18 @@ excelexcel-cursor-mvp/
 # Activate virtual environment
 source .venv/bin/activate
 
-# Run all tests
+# Run all tests (36+ comprehensive tests)
+python tests/run_tests.py
+
+# Or use pytest
 python -m pytest tests/ -v
 
 # Run specific test categories
-python -m pytest tests/test_formula.py -v  # Formula engine tests
-python -m pytest tests/test_agent.py -v   # AI agent tests
-python -m pytest tests/test_workbook.py -v # Core functionality tests
+python -m pytest tests/test_formulas.py -v    # Formula engine tests
+python -m pytest tests/test_agent.py -v      # AI agent tests
+python -m pytest tests/test_agent_tools.py -v # AI tool functionality tests
+python -m pytest tests/test_workbook.py -v   # Core functionality tests
+python -m pytest tests/test_integration.py -v # Integration tests
 ```
 
 ### Development Setup
@@ -237,8 +274,8 @@ pip install -r requirements.txt
 # Create environment file
 cp .env.example .env  # Edit with your API keys
 
-# Run tests
-python -m pytest tests/ -v
+# Run tests with detailed output
+python tests/run_tests.py
 
 # Start development server
 streamlit run streamlit_app_enhanced.py
