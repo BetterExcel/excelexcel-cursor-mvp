@@ -2,10 +2,15 @@ from typing import Dict, Any, List
 import pandas as pd
 import random
 import datetime
+import os
+from dotenv import load_dotenv
 from app.services.workbook import (
     get_sheet, set_sheet, ensure_sheet, set_cell_by_a1,
 )
 from app.ui.formula import evaluate_formula
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 # Tool implementations operate IN-PLACE on the workbook dict
