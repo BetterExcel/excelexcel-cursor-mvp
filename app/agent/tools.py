@@ -148,7 +148,7 @@ def tool_save_current_sheet(workbook: Dict[str, pd.DataFrame], sheet: str, filen
 
 
 def tool_generate_sample_data(workbook: Dict[str, pd.DataFrame], sheet: str, rows: int, columns: List[Dict], context: str) -> str:
-    """Generate sample data based on column specifications and context."""
+    """Generate sample data using AI-powered intelligent data generation."""
     import random
     import datetime
     from datetime import timedelta
@@ -160,169 +160,234 @@ def tool_generate_sample_data(workbook: Dict[str, pd.DataFrame], sheet: str, row
     # Clear existing data
     df.iloc[:, :] = ""
     
-    # Generate data based on column specifications
+    # Try AI-powered generation first, fallback to intelligent templates
+    try:
+        data = _generate_ai_powered_data(columns, rows, context)
+    except Exception as e:
+        print(f"AI generation failed ({e}), using intelligent template generation")
+        data = _generate_intelligent_template_data(columns, rows, context)
+    
+    # Set headers
+    for i, col_spec in enumerate(columns):
+        if i < len(df.columns):
+            df.iloc[0, i] = col_spec["name"]
+    
+    # Fill data rows
+    for row_idx in range(1, min(rows + 1, len(df))):
+        for col_idx, col_spec in enumerate(columns):
+            if col_idx < len(df.columns):
+                col_name = col_spec["name"]
+                if col_name in data and (row_idx - 1) < len(data[col_name]):
+                    df.iloc[row_idx, col_idx] = data[col_name][row_idx - 1]
+    
+    col_names = ", ".join([col["name"] for col in columns])
+    return f"Generated {rows} rows of sample data for {context} with columns: {col_names}. Data includes realistic values based on the context."
+
+
+def _generate_ai_powered_data(columns: List[Dict], rows: int, context: str) -> Dict[str, List]:
+    """Generate data using OpenAI API for maximum intelligence and variety."""
+    import openai
+    import json
+    import os
+    
+    # Check if OpenAI API key is available
+    api_key = os.getenv('OPENAI_API_KEY')
+    if not api_key:
+        raise ValueError("OpenAI API key not available")
+    
+    client = openai.OpenAI(api_key=api_key)
+    
+    # Create smart prompt for AI data generation
+    column_descriptions = []
+    for col in columns:
+        column_descriptions.append(f"- {col['name']} ({col['type']})")
+    
+    prompt = f"""Generate {rows} rows of realistic sample data for: {context}
+
+Columns needed:
+{chr(10).join(column_descriptions)}
+
+Requirements:
+1. Generate DIVERSE, REALISTIC data that would make sense in a professional spreadsheet
+2. For text fields, create varied, meaningful content (no repetitive patterns)
+3. For currency/numbers, use appropriate ranges for the context
+4. For dates, use realistic date ranges
+5. Make sure each row is unique and interesting
+6. Consider the context "{context}" when generating content
+7. Use professional naming conventions and realistic business data
+
+Return ONLY a JSON object with this structure:
+{{
+  "column_name_1": ["value1", "value2", "value3", ...],
+  "column_name_2": ["value1", "value2", "value3", ...],
+  ...
+}}
+
+Each array should have exactly {rows} values. Make the data professional and Excel-quality."""
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4-turbo",
+            messages=[
+                {"role": "system", "content": "You are an expert data generator for professional spreadsheets. Generate realistic, diverse sample data. Always return valid JSON only."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=2000,
+            temperature=0.8,  # Higher creativity for more varied data
+            timeout=30
+        )
+        
+        response_text = response.choices[0].message.content.strip()
+        
+        # Parse JSON response
+        try:
+            data = json.loads(response_text)
+            
+            # Validate structure
+            for col in columns:
+                col_name = col["name"]
+                if col_name not in data:
+                    raise ValueError(f"Missing column: {col_name}")
+                if len(data[col_name]) != rows:
+                    raise ValueError(f"Wrong number of rows for {col_name}: expected {rows}, got {len(data[col_name])}")
+            
+            return data
+            
+        except json.JSONDecodeError as e:
+            raise ValueError(f"AI returned invalid JSON: {e}")
+            
+    except Exception as e:
+        raise ValueError(f"AI data generation failed: {e}")
+
+
+def _generate_intelligent_template_data(columns: List[Dict], rows: int, context: str) -> Dict[str, List]:
+    """Generate data using intelligent template system with context awareness."""
+    import random
+    from datetime import datetime, timedelta
+    
     data = {}
+    context_lower = context.lower()
     
     for col_spec in columns:
         col_name = col_spec["name"]
         col_type = col_spec["type"]
+        col_name_lower = col_name.lower()
         
-        # Add column header
         data[col_name] = []
         
-        # Generate data based on type and context
+        # Intelligent data generation based on context and column names
         if col_type == "date":
-            # Generate sequential dates (last 'rows' days)
             start_date = datetime.date.today() - timedelta(days=rows-1)
             for i in range(rows):
                 data[col_name].append((start_date + timedelta(days=i)).strftime("%Y-%m-%d"))
                 
         elif col_type == "number":
-            if "stock" in context.lower() or "price" in col_name.lower():
-                # Stock price-like data (gradual changes)
+            if "rating" in col_name_lower or "score" in col_name_lower:
+                # Ratings (1-5 scale)
+                for i in range(rows):
+                    data[col_name].append(round(random.uniform(3.5, 5.0), 1))
+            elif "age" in col_name_lower:
+                for i in range(rows):
+                    data[col_name].append(random.randint(22, 65))
+            elif "quantity" in col_name_lower or "qty" in col_name_lower:
+                for i in range(rows):
+                    data[col_name].append(random.randint(1, 50))
+            elif "stock" in context_lower or "price" in col_name_lower:
                 base_price = random.uniform(150, 200)
                 prices = [base_price]
                 for i in range(1, rows):
-                    change = random.uniform(-0.05, 0.05)  # 5% max change
+                    change = random.uniform(-0.05, 0.05)
                     new_price = prices[-1] * (1 + change)
                     prices.append(round(new_price, 2))
                 data[col_name] = prices
-            elif "cap" in col_name.lower():
-                # Market cap-like data (billions)
-                base_cap = random.uniform(2000, 3000)
-                for i in range(rows):
-                    variation = random.uniform(0.95, 1.05)
-                    data[col_name].append(f"{base_cap * variation:.1f}B")
             else:
-                # Generic numbers
                 for i in range(rows):
                     data[col_name].append(round(random.uniform(10, 1000), 2))
                     
         elif col_type == "currency":
-            # Currency values - context-aware pricing
-            if "product" in context.lower() or "price" in col_name.lower():
-                # Product pricing - realistic ranges
-                price_ranges = {
-                    "electronics": (50, 1500),
-                    "furniture": (100, 800),
-                    "clothing": (20, 200),
-                    "books": (10, 50),
-                    "software": (30, 300)
-                }
-                # Use product pricing if context suggests it
-                min_price, max_price = price_ranges.get("electronics", (25, 500))  # Default to electronics
+            if "restaurant" in context_lower or "food" in context_lower:
+                # Restaurant pricing
                 for i in range(rows):
-                    price = random.uniform(min_price, max_price)
-                    # Round to realistic price points
-                    if price < 50:
-                        price = round(price, 2)
-                    elif price < 200:
-                        price = round(price / 5) * 5  # Round to $5
+                    price = round(random.uniform(12, 45), 2)
+                    data[col_name].append(f"${price:.2f}")
+            elif "salary" in col_name_lower:
+                for i in range(rows):
+                    salary = random.randint(45000, 120000)
+                    salary = round(salary / 1000) * 1000
+                    data[col_name].append(f"${salary:,}")
+            elif "product" in context_lower:
+                for i in range(rows):
+                    price = random.uniform(25, 800)
+                    if price < 100:
+                        price = round(price / 5) * 5
                     else:
-                        price = round(price / 10) * 10  # Round to $10
+                        price = round(price / 10) * 10
                     data[col_name].append(f"${price:.2f}")
             else:
-                # Generic currency values
                 for i in range(rows):
-                    data[col_name].append(f"${random.uniform(100, 500):.2f}")
+                    data[col_name].append(f"${random.uniform(20, 200):.2f}")
                 
         elif col_type == "text":
-            if "news" in col_name.lower():
-                # News headlines for stock context
-                news_templates = [
-                    "Company reports strong Q{} earnings",
-                    "Stock rises on positive analyst outlook",
-                    "New product launch drives investor confidence",
-                    "Market volatility affects trading volume",
-                    "CEO announces expansion plans",
-                    "Quarterly revenue beats expectations",
-                    "Partnership deal boosts stock performance",
-                    "Industry trends favor growth prospects"
-                ]
+            # Context-aware text generation
+            if ("restaurant" in context_lower or "food" in context_lower) and "name" in col_name_lower:
+                restaurant_styles = ["Bistro", "Café", "Grill", "Kitchen", "House", "Corner", "Garden", "Palace", "Tavern", "Diner"]
+                restaurant_adjectives = ["Golden", "Silver", "Blue", "Green", "Sunset", "Ocean", "Mountain", "Urban", "Classic", "Modern", "Royal", "Fresh"]
                 for i in range(rows):
-                    template = random.choice(news_templates)
-                    if "{}" in template:
-                        template = template.format(random.randint(1, 4))
-                    data[col_name].append(template)
-            elif "product" in col_name.lower() and "name" in col_name.lower():
-                # Product names - realistic and diverse
-                product_categories = [
-                    "Laptop", "Smartphone", "Tablet", "Monitor", "Keyboard", "Mouse",
-                    "Headphones", "Speaker", "Camera", "Printer", "Router", "Drive",
-                    "Chair", "Desk", "Lamp", "Notebook", "Pen", "Backpack",
-                    "Shirt", "Jeans", "Shoes", "Watch", "Sunglasses", "Jacket",
-                    "Coffee", "Tea", "Snacks", "Water", "Juice", "Energy Bar"
-                ]
+                    adj = random.choice(restaurant_adjectives)
+                    style = random.choice(restaurant_styles)
+                    data[col_name].append(f"{adj} {style}")
+            elif "cuisine" in col_name_lower or (("restaurant" in context_lower or "food" in context_lower) and "type" in col_name_lower):
+                cuisines = ["Italian", "Chinese", "Mexican", "Indian", "Japanese", "Thai", "French", "American", "Mediterranean", "Korean", "Vietnamese", "Greek"]
+                for i in range(rows):
+                    data[col_name].append(random.choice(cuisines))
+            elif ("employee" in context_lower or "staff" in context_lower) and "department" in col_name_lower:
+                departments = ["Engineering", "Marketing", "Sales", "HR", "Finance", "Operations", "Support", "Design", "Product", "Legal"]
+                for i in range(rows):
+                    data[col_name].append(random.choice(departments))
+            elif "product" in col_name_lower and "name" in col_name_lower:
+                categories = ["Laptop", "Smartphone", "Tablet", "Monitor", "Headphones", "Speaker", "Camera", "Printer", "Watch", "Keyboard"]
                 brands = ["Pro", "Elite", "Max", "Ultra", "Prime", "Plus", "Air", "Neo", "Edge", "Core"]
                 models = ["2024", "X1", "S7", "M3", "V2", "G5", "R8", "T4", "L9", "K6"]
-                
                 for i in range(rows):
-                    category = random.choice(product_categories)
+                    category = random.choice(categories)
                     brand = random.choice(brands)
                     model = random.choice(models)
                     data[col_name].append(f"{category} {brand} {model}")
-            elif "product" in col_name.lower() and ("id" in col_name.lower() or "code" in col_name.lower()):
-                # Product IDs - formatted codes
+            elif "product" in col_name_lower and ("id" in col_name_lower or "code" in col_name_lower):
                 for i in range(rows):
                     prefix = random.choice(["PRD", "ITM", "SKU", "PDT"])
                     number = str(random.randint(1000, 9999))
                     suffix = random.choice(["A", "B", "C", "X", "Y", "Z"])
                     data[col_name].append(f"{prefix}-{number}{suffix}")
-            elif "product" in col_name.lower() and ("desc" in col_name.lower() or "description" in col_name.lower()):
-                # Product descriptions - detailed and varied
-                descriptions = [
-                    "High-performance device with advanced features and sleek design",
-                    "Premium quality product built for professionals and enthusiasts",
-                    "Affordable solution perfect for everyday use and reliability",
-                    "Innovative technology combined with user-friendly interface",
-                    "Durable construction with modern styling and functionality",
-                    "Compact design offering portability without compromising performance",
-                    "Energy-efficient model with enhanced productivity features",
-                    "Professional-grade equipment designed for demanding applications",
-                    "Versatile tool suitable for both personal and business use",
-                    "State-of-the-art technology with intuitive controls",
-                    "Ergonomic design optimized for comfort and extended use",
-                    "Cutting-edge features with backward compatibility support",
-                    "Lightweight yet robust construction for active lifestyles",
-                    "Smart functionality with automated convenience features",
-                    "Premium materials ensuring long-lasting durability and style"
-                ]
+            elif "name" in col_name_lower and ("employee" in context_lower or "person" in context_lower or "staff" in context_lower):
+                first_names = ["Alex", "Jordan", "Casey", "Morgan", "Taylor", "Riley", "Avery", "Quinn", "Jamie", "Dakota", "Sage", "River"]
+                last_names = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Wilson", "Moore", "Taylor", "Anderson"]
                 for i in range(rows):
-                    data[col_name].append(random.choice(descriptions))
-            elif "name" in col_name.lower():
-                # Person names
-                first_names = ["Alex", "Jordan", "Casey", "Morgan", "Taylor", "Riley", "Avery", "Quinn", 
-                              "Jamie", "Dakota", "Sage", "River", "Phoenix", "Skyler", "Cameron"]
-                last_names = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", 
-                             "Davis", "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson"]
+                    first = random.choice(first_names)
+                    last = random.choice(last_names)
+                    data[col_name].append(f"{first} {last}")
+            elif "sales" in context_lower and ("rep" in col_name_lower or "person" in col_name_lower):
+                first_names = ["Michael", "Sarah", "David", "Lisa", "John", "Emma", "Chris", "Amy", "Robert", "Jessica"]
+                last_names = ["Anderson", "Thomas", "Jackson", "White", "Harris", "Martin", "Thompson", "Clark", "Lewis", "Walker"]
                 for i in range(rows):
                     first = random.choice(first_names)
                     last = random.choice(last_names)
                     data[col_name].append(f"{first} {last}")
             else:
-                # Generic text data - much more varied
-                items = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Theta", "Lambda",
-                        "Sigma", "Omega", "Phoenix", "Horizon", "Summit", "Venture", "Pioneer",
-                        "Matrix", "Vector", "Quantum", "Nexus", "Prism", "Catalyst", "Fusion"]
+                # Context-aware generic text
+                if "restaurant" in context_lower or "food" in context_lower:
+                    items = ["Fresh", "Organic", "Artisan", "Traditional", "Modern", "Fusion", "Seasonal", "Gourmet"]
+                elif "product" in context_lower or "tech" in context_lower:
+                    items = ["Premium", "Standard", "Professional", "Enterprise", "Advanced", "Basic", "Deluxe", "Elite"]
+                elif "employee" in context_lower or "business" in context_lower:
+                    items = ["Senior", "Junior", "Lead", "Principal", "Associate", "Manager", "Director", "Specialist"]
+                else:
+                    items = ["Alpha", "Beta", "Gamma", "Delta", "Premium", "Standard", "Advanced", "Professional"]
+                
+                suffixes = ["Pro", "Max", "Plus", "Prime", "Elite", "Core", "Edge", "Ultra"]
                 for i in range(rows):
                     base = random.choice(items)
-                    suffix = random.choice(["Pro", "Max", "Elite", "Plus", "X", "Prime", "Core", "Neo"])
+                    suffix = random.choice(suffixes)
                     data[col_name].append(f"{base} {suffix}")
     
-    # Create DataFrame from generated data
-    new_df = pd.DataFrame(data)
-    
-    # Update the workbook sheet
-    for col_idx, col_name in enumerate(new_df.columns):
-        if col_idx < len(df.columns):
-            df_col = df.columns[col_idx]
-            # Set header
-            df.iloc[0, col_idx] = col_name
-            # Set data
-            for row_idx, value in enumerate(new_df[col_name]):
-                if row_idx + 1 < len(df):
-                    df.iloc[row_idx + 1, col_idx] = value
-    
-    set_sheet(workbook, sheet, df)
-    
-    return f"Generated {rows} rows of sample data for {context} with columns: {', '.join([c['name'] for c in columns])}. Data includes realistic values based on the context."
+    return data

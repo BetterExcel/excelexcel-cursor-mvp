@@ -3,6 +3,7 @@
 
 2) Create me a new sheet. The new sheet should have 4 columns, Product id, product name, product price and product description. Fill in the columns with 40 products.
 -- The AI will now generate realistic, diverse product data with proper IDs, varied names, appropriate pricing, and meaningful descriptions.
+-- what is the avg price of all the products in the sheet?
 
 3) Generate employee data with columns: Employee ID, Name, Department, Salary, and Start Date. Create 25 employees.
 -- This will create realistic employee information with proper formatting and diverse data.

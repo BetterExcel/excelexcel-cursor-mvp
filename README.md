@@ -37,11 +37,13 @@ A powerful Excel‑like web application with advanced AI-powered spreadsheet ass
 - **Pivot Tables**: Data aggregation and analysis (coming soon)
 
 ### 🤖 **AI-Powered Assistant**
+- **Intelligent Data Generation**: Context-aware sample data creation that understands business domains
 - **GPT-4-Turbo Integration**: Advanced AI agent with 30-second timeout and enhanced error handling
+- **Smart Fallback System**: High-quality template generation when AI is unavailable
 - **Natural Language Processing**: Conversational interface for spreadsheet operations
 - **Contextual Understanding**: AI knows current sheet structure and data
-- **11 Specialized Tools**: Complete spreadsheet manipulation toolkit including data generation
-- **Sample Data Generation**: Create realistic test data with contextual content (dates, currencies, text)
+- **11 Specialized Tools**: Complete spreadsheet manipulation toolkit including intelligent data generation
+- **Sample Data Generation**: Create realistic test data with contextual content (restaurants, employees, products, sales)
 - **Operation Logging**: Track all AI operations with timestamps
 - **Model Selection**: Support for multiple OpenAI models
 - **Robust Error Handling**: Graceful handling of invalid operations and API timeouts
@@ -134,6 +136,7 @@ Use the sidebar chat to interact with the AI agent using natural language:
 - *"Create me stock data for AAPL for 30 days with Date, Price, News and Volume columns"*
 - *"Generate sample sales data with 50 rows including customer info and purchase amounts"*
 - *"Fill this sheet with realistic employee data - names, departments, and salaries"*
+- *"Generate restaurant directory with cuisine types and ratings for my food app"*
 
 **File Operations:**
 - *"Export the current sheet as CSV"*
@@ -154,6 +157,22 @@ The project includes `prompts-example.txt` with tested prompts that demonstrate 
    add 4 columns Date, price, News and market Cap. 
    Fill in these columns with random but sensible data
 ```
+
+### 🎯 **AI Intelligence Demo**
+
+Run the included demo to see the intelligent data generation system in action:
+
+```bash
+python demo_ai_generation.py
+```
+
+This demonstrates how the AI system automatically understands context and generates appropriate data:
+- **Restaurant data**: Realistic names, cuisine types, pricing, and ratings
+- **Employee data**: Professional names, departments, realistic salaries, and ages  
+- **Product data**: Proper product IDs, descriptive names, appropriate pricing
+- **Sales data**: Representative names, products, quantities, and totals
+
+The system works with intelligent templates (no API key required) and can be enhanced with OpenAI integration for even more sophisticated generation. See `AI_SETUP.md` for details.
 
 ## 📁 Project Structure
 
@@ -186,8 +205,10 @@ excelexcel-cursor-mvp/
 │   └── *.csv             # User uploaded and auto-saved files
 ├── .venv/                 # Python virtual environment
 ├── streamlit_app_enhanced.py  # Main application entry point
+├── demo_ai_generation.py     # AI intelligence demonstration script
 ├── data_manager.py        # Data directory management utility
 ├── prompts-example.txt    # Example prompts for testing AI functionality
+├── AI_SETUP.md           # AI system setup and configuration guide
 ├── run_app.sh            # Application startup script
 ├── SETUP_STATUS.md       # Development environment documentation
 ├── requirements.txt      # Python dependencies
