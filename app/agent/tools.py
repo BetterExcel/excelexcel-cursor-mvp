@@ -1,5 +1,7 @@
 from typing import Dict, Any, List
 import pandas as pd
+import random
+import datetime
 from app.services.workbook import (
     get_sheet, set_sheet, ensure_sheet, set_cell_by_a1,
 )
@@ -143,3 +145,102 @@ def tool_save_current_sheet(workbook: Dict[str, pd.DataFrame], sheet: str, filen
     df.to_csv(filepath, index=False)
     
     return f"Saved sheet '{sheet}' as '{filepath}' with {len(df)} rows and {len(df.columns)} columns."
+
+
+def tool_generate_sample_data(workbook: Dict[str, pd.DataFrame], sheet: str, rows: int, columns: List[Dict], context: str) -> str:
+    """Generate sample data based on column specifications and context."""
+    import random
+    import datetime
+    from datetime import timedelta
+    
+    # Ensure the sheet exists
+    ensure_sheet(workbook, sheet, rows + 1, len(columns))  # +1 for header
+    df = get_sheet(workbook, sheet)
+    
+    # Clear existing data
+    df.iloc[:, :] = ""
+    
+    # Generate data based on column specifications
+    data = {}
+    
+    for col_spec in columns:
+        col_name = col_spec["name"]
+        col_type = col_spec["type"]
+        
+        # Add column header
+        data[col_name] = []
+        
+        # Generate data based on type and context
+        if col_type == "date":
+            # Generate sequential dates (last 'rows' days)
+            start_date = datetime.date.today() - timedelta(days=rows-1)
+            for i in range(rows):
+                data[col_name].append((start_date + timedelta(days=i)).strftime("%Y-%m-%d"))
+                
+        elif col_type == "number":
+            if "stock" in context.lower() or "price" in col_name.lower():
+                # Stock price-like data (gradual changes)
+                base_price = random.uniform(150, 200)
+                prices = [base_price]
+                for i in range(1, rows):
+                    change = random.uniform(-0.05, 0.05)  # 5% max change
+                    new_price = prices[-1] * (1 + change)
+                    prices.append(round(new_price, 2))
+                data[col_name] = prices
+            elif "cap" in col_name.lower():
+                # Market cap-like data (billions)
+                base_cap = random.uniform(2000, 3000)
+                for i in range(rows):
+                    variation = random.uniform(0.95, 1.05)
+                    data[col_name].append(f"{base_cap * variation:.1f}B")
+            else:
+                # Generic numbers
+                for i in range(rows):
+                    data[col_name].append(round(random.uniform(10, 1000), 2))
+                    
+        elif col_type == "currency":
+            # Currency values
+            for i in range(rows):
+                data[col_name].append(f"${random.uniform(100, 500):.2f}")
+                
+        elif col_type == "text":
+            if "news" in col_name.lower():
+                # News headlines for stock context
+                news_templates = [
+                    "Company reports strong Q{} earnings",
+                    "Stock rises on positive analyst outlook",
+                    "New product launch drives investor confidence",
+                    "Market volatility affects trading volume",
+                    "CEO announces expansion plans",
+                    "Quarterly revenue beats expectations",
+                    "Partnership deal boosts stock performance",
+                    "Industry trends favor growth prospects"
+                ]
+                for i in range(rows):
+                    template = random.choice(news_templates)
+                    if "{}" in template:
+                        template = template.format(random.randint(1, 4))
+                    data[col_name].append(template)
+            else:
+                # Generic text data
+                items = ["Item A", "Item B", "Item C", "Product X", "Service Y", "Plan Z"]
+                for i in range(rows):
+                    data[col_name].append(f"{random.choice(items)} {i+1}")
+    
+    # Create DataFrame from generated data
+    new_df = pd.DataFrame(data)
+    
+    # Update the workbook sheet
+    for col_idx, col_name in enumerate(new_df.columns):
+        if col_idx < len(df.columns):
+            df_col = df.columns[col_idx]
+            # Set header
+            df.iloc[0, col_idx] = col_name
+            # Set data
+            for row_idx, value in enumerate(new_df[col_name]):
+                if row_idx + 1 < len(df):
+                    df.iloc[row_idx + 1, col_idx] = value
+    
+    set_sheet(workbook, sheet, df)
+    
+    return f"Generated {rows} rows of sample data for {context} with columns: {', '.join([c['name'] for c in columns])}. Data includes realistic values based on the context."

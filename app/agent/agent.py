@@ -89,9 +89,17 @@ SYSTEM_PROMPT = (
     "You have detailed information about the current active sheet including its structure, data types, and content. "
     "Use this context to provide informed recommendations and perform operations intelligently. "
     
+    "CRITICAL: YOU CAN AND SHOULD DIRECTLY MODIFY THE SPREADSHEET DATA using the provided tools. "
+    "DO NOT give manual instructions or tell users to do things themselves. "
+    "Instead, USE THE TOOLS to perform the actual operations. "
+    
     "IMPORTANT GUIDELINES: "
-    "• Always explain your actions step-by-step and provide detailed feedback about what you're doing "
-    "• When performing operations, break down your process and explain each step clearly "
+    "• ALWAYS use the provided tools to perform actions rather than giving manual instructions "
+    "• When asked to create data, generate it yourself using set_cell or create_csv_file tools "
+    "• When asked to modify data, do it directly using the available tools "
+    "• When asked to add formulas, use apply_formula tool immediately "
+    "• When asked to sort or filter, use the respective tools "
+    "• Always explain your actions step-by-step WHILE performing them with tools "
     "• Use the provided tools to perform actions rather than replying with manual steps "
     "• Reference specific columns and data types when making recommendations "
     "• Default to the current sheet unless the user names another "
@@ -100,6 +108,15 @@ SYSTEM_PROMPT = (
     "• If an operation fails, explain why and suggest alternatives "
     "• Use the sheet context to suggest relevant operations (e.g., if you see numeric data, suggest calculations) "
     "• When analyzing data, reference the actual column names and data types you can see "
+    
+    "EXAMPLES OF CORRECT BEHAVIOR: "
+    "• User: 'Create stock data for AAPL' → YOU: Use set_cell or create_csv_file to actually create the data "
+    "• User: 'Add a formula to sum column A' → YOU: Use apply_formula tool to add =SUM(A:A) "
+    "• User: 'Sort by price' → YOU: Use sort_sheet tool immediately "
+    "• User: 'Clear the sheet' → YOU: Use tools to clear or reset data "
+    
+    "DO NOT SAY: 'You can do this by...' or 'Follow these steps...' "
+    "INSTEAD DO: Actually perform the operation using the available tools. "
 )
 
 TOOLS = [
@@ -228,6 +245,34 @@ TOOLS = [
                     "fmt": {"type": "string", "enum": ["csv", "markdown"], "default": "csv"}
                 },
                 "required": ["sheet"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_sample_data",
+            "description": "Generate sample data for the sheet with specified columns and data types. Perfect for creating stock data, sales data, etc.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "sheet": {"type": "string", "description": "Sheet name to populate"},
+                    "rows": {"type": "integer", "description": "Number of data rows to generate"},
+                    "columns": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string", "description": "Column name"},
+                                "type": {"type": "string", "enum": ["date", "number", "text", "currency"], "description": "Data type for this column"}
+                            },
+                            "required": ["name", "type"]
+                        },
+                        "description": "Column definitions with names and types"
+                    },
+                    "context": {"type": "string", "description": "Context for data generation (e.g., 'AAPL stock data', 'sales records')"}
+                },
+                "required": ["sheet", "rows", "columns", "context"]
             }
         }
     },
@@ -466,6 +511,8 @@ def run_agent(user_msg: str, workbook: Dict[str, pd.DataFrame], current_sheet: s
                         out = tool_impl.tool_create_csv_file(workbook, args.get("sheet", current_sheet), args["filename"], args.get("data"))
                     elif name == "save_current_sheet":
                         out = tool_impl.tool_save_current_sheet(workbook, args.get("sheet", current_sheet), args.get("filename"))
+                    elif name == "generate_sample_data":
+                        out = tool_impl.tool_generate_sample_data(workbook, args.get("sheet", current_sheet), args["rows"], args["columns"], args["context"])
                     else:
                         out = f"Unknown tool {name}"
                         
