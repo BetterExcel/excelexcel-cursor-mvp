@@ -11,8 +11,11 @@ from app.services.workbook import list_sheets
 from dotenv import load_dotenv
 load_dotenv()
 
-# Initialize OpenAI client with API key from environment
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Initialize OpenAI client with API key from environment and timeout
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    timeout=30.0  # 30 second timeout
+)
 
 # Preferred models to try in order (prioritize accessible models)
 PREFERRED_MODELS = [
