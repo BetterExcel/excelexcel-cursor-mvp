@@ -1,4 +1,11 @@
 1) Create me stock data for AAPL for 30 days for the month of July 2025,  add 4 columns Date, price, News and market Cap. Fill in these columns with random but sensible data
 -- You Can ask it to do some calculations on the data, model will use Formulae available to it.
 
-2) 
+2) Create me a new sheet. The new sheet should have 4 columns, Product id, product name, product price and product description. Fill in the columns with 40 products.
+-- The AI will now generate realistic, diverse product data with proper IDs, varied names, appropriate pricing, and meaningful descriptions.
+
+3) Generate employee data with columns: Employee ID, Name, Department, Salary, and Start Date. Create 25 employees.
+-- This will create realistic employee information with proper formatting and diverse data.
+
+4) Create a sales report with columns: Date, Product, Sales Rep, Quantity, Unit Price, and Total. Generate 50 sales records.
+-- The AI will create varied sales data with realistic dates, product names, quantities, and calculated totals.

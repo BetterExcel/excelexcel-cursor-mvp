@@ -199,9 +199,32 @@ def tool_generate_sample_data(workbook: Dict[str, pd.DataFrame], sheet: str, row
                     data[col_name].append(round(random.uniform(10, 1000), 2))
                     
         elif col_type == "currency":
-            # Currency values
-            for i in range(rows):
-                data[col_name].append(f"${random.uniform(100, 500):.2f}")
+            # Currency values - context-aware pricing
+            if "product" in context.lower() or "price" in col_name.lower():
+                # Product pricing - realistic ranges
+                price_ranges = {
+                    "electronics": (50, 1500),
+                    "furniture": (100, 800),
+                    "clothing": (20, 200),
+                    "books": (10, 50),
+                    "software": (30, 300)
+                }
+                # Use product pricing if context suggests it
+                min_price, max_price = price_ranges.get("electronics", (25, 500))  # Default to electronics
+                for i in range(rows):
+                    price = random.uniform(min_price, max_price)
+                    # Round to realistic price points
+                    if price < 50:
+                        price = round(price, 2)
+                    elif price < 200:
+                        price = round(price / 5) * 5  # Round to $5
+                    else:
+                        price = round(price / 10) * 10  # Round to $10
+                    data[col_name].append(f"${price:.2f}")
+            else:
+                # Generic currency values
+                for i in range(rows):
+                    data[col_name].append(f"${random.uniform(100, 500):.2f}")
                 
         elif col_type == "text":
             if "news" in col_name.lower():
@@ -221,11 +244,70 @@ def tool_generate_sample_data(workbook: Dict[str, pd.DataFrame], sheet: str, row
                     if "{}" in template:
                         template = template.format(random.randint(1, 4))
                     data[col_name].append(template)
-            else:
-                # Generic text data
-                items = ["Item A", "Item B", "Item C", "Product X", "Service Y", "Plan Z"]
+            elif "product" in col_name.lower() and "name" in col_name.lower():
+                # Product names - realistic and diverse
+                product_categories = [
+                    "Laptop", "Smartphone", "Tablet", "Monitor", "Keyboard", "Mouse",
+                    "Headphones", "Speaker", "Camera", "Printer", "Router", "Drive",
+                    "Chair", "Desk", "Lamp", "Notebook", "Pen", "Backpack",
+                    "Shirt", "Jeans", "Shoes", "Watch", "Sunglasses", "Jacket",
+                    "Coffee", "Tea", "Snacks", "Water", "Juice", "Energy Bar"
+                ]
+                brands = ["Pro", "Elite", "Max", "Ultra", "Prime", "Plus", "Air", "Neo", "Edge", "Core"]
+                models = ["2024", "X1", "S7", "M3", "V2", "G5", "R8", "T4", "L9", "K6"]
+                
                 for i in range(rows):
-                    data[col_name].append(f"{random.choice(items)} {i+1}")
+                    category = random.choice(product_categories)
+                    brand = random.choice(brands)
+                    model = random.choice(models)
+                    data[col_name].append(f"{category} {brand} {model}")
+            elif "product" in col_name.lower() and ("id" in col_name.lower() or "code" in col_name.lower()):
+                # Product IDs - formatted codes
+                for i in range(rows):
+                    prefix = random.choice(["PRD", "ITM", "SKU", "PDT"])
+                    number = str(random.randint(1000, 9999))
+                    suffix = random.choice(["A", "B", "C", "X", "Y", "Z"])
+                    data[col_name].append(f"{prefix}-{number}{suffix}")
+            elif "product" in col_name.lower() and ("desc" in col_name.lower() or "description" in col_name.lower()):
+                # Product descriptions - detailed and varied
+                descriptions = [
+                    "High-performance device with advanced features and sleek design",
+                    "Premium quality product built for professionals and enthusiasts",
+                    "Affordable solution perfect for everyday use and reliability",
+                    "Innovative technology combined with user-friendly interface",
+                    "Durable construction with modern styling and functionality",
+                    "Compact design offering portability without compromising performance",
+                    "Energy-efficient model with enhanced productivity features",
+                    "Professional-grade equipment designed for demanding applications",
+                    "Versatile tool suitable for both personal and business use",
+                    "State-of-the-art technology with intuitive controls",
+                    "Ergonomic design optimized for comfort and extended use",
+                    "Cutting-edge features with backward compatibility support",
+                    "Lightweight yet robust construction for active lifestyles",
+                    "Smart functionality with automated convenience features",
+                    "Premium materials ensuring long-lasting durability and style"
+                ]
+                for i in range(rows):
+                    data[col_name].append(random.choice(descriptions))
+            elif "name" in col_name.lower():
+                # Person names
+                first_names = ["Alex", "Jordan", "Casey", "Morgan", "Taylor", "Riley", "Avery", "Quinn", 
+                              "Jamie", "Dakota", "Sage", "River", "Phoenix", "Skyler", "Cameron"]
+                last_names = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", 
+                             "Davis", "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson"]
+                for i in range(rows):
+                    first = random.choice(first_names)
+                    last = random.choice(last_names)
+                    data[col_name].append(f"{first} {last}")
+            else:
+                # Generic text data - much more varied
+                items = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Theta", "Lambda",
+                        "Sigma", "Omega", "Phoenix", "Horizon", "Summit", "Venture", "Pioneer",
+                        "Matrix", "Vector", "Quantum", "Nexus", "Prism", "Catalyst", "Fusion"]
+                for i in range(rows):
+                    base = random.choice(items)
+                    suffix = random.choice(["Pro", "Max", "Elite", "Plus", "X", "Prime", "Core", "Neo"])
+                    data[col_name].append(f"{base} {suffix}")
     
     # Create DataFrame from generated data
     new_df = pd.DataFrame(data)
