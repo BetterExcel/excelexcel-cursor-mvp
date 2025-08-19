@@ -3,8 +3,13 @@
 Demonstration of AI-powered intelligent data generation system
 Shows how the system understands context and generates appropriate data
 """
+import os
+from dotenv import load_dotenv
 from app.agent.tools import tool_generate_sample_data
 from app.services.workbook import new_workbook
+
+# Load environment variables from .env file
+load_dotenv()
 
 def demo_context_aware_generation():
     """Demonstrate context-aware data generation across different domains."""
