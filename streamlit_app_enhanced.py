@@ -432,16 +432,11 @@ if "active_ribbon_tab" not in st.session_state:
     st.session_state.active_ribbon_tab = "Home"
 if "ai_operations_log" not in st.session_state:
     st.session_state.ai_operations_log = []
-if "chat_processing" not in st.session_state:
-    st.session_state.chat_processing = False
 # Model selection state
 if "chat_model" not in st.session_state:
     st.session_state.chat_model = os.getenv("OPENAI_CHAT_MODEL") or os.getenv("OPENAI_MODEL") or "gpt-4-turbo-2024-04-09"
 if "model_probe" not in st.session_state:
     st.session_state.model_probe = None
-# Chat input counter for resetting input field
-if "chat_input_counter" not in st.session_state:
-    st.session_state.chat_input_counter = 0
 
 # Upload tracking to prevent duplicates
 if "last_uploaded_file" not in st.session_state:
@@ -1711,41 +1706,7 @@ with st.sidebar:
     # Enhanced chat input with suggestions
     st.markdown("### 💬 Ask AI Assistant")
     
-    # Show chat processing status
-    if "chat_processing" in st.session_state and st.session_state.chat_processing:
-        st.info("🔄 AI is thinking... Please wait.")
-        st.markdown("""
-        <div style="display: flex; align-items: center; margin: 10px 0;">
-            <div style="
-                width: 20px; 
-                height: 20px; 
-                border: 3px solid #f3f3f3; 
-                border-top: 3px solid #3498db; 
-                border-radius: 50%; 
-                animation: spin 1s linear infinite;
-                margin-right: 10px;
-            "></div>
-            <span>Processing your request...</span>
-        </div>
-        <style>
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        </style>
-        """, unsafe_allow_html=True)
-    
-    # Show message confirmation if available
-    if "last_message_sent" in st.session_state:
-        st.success(st.session_state.last_message_sent)
-        # Clear the message after showing it once when not processing
-        if not st.session_state.get("chat_processing", False):
-            del st.session_state.last_message_sent
-    
-    # Show AI completion message if available
-    if "ai_response_complete" in st.session_state:
-        st.success(st.session_state.ai_response_complete)
-        del st.session_state.ai_response_complete
+
     
     # Quick action buttons
     st.markdown("**🚀 Quick Actions:**")
@@ -1777,63 +1738,23 @@ with st.sidebar:
     if initial_value:
         st.session_state.quick_message = ""  # Clear after use
     
-    # Working chat input using text_input + button (replacing st.chat_input)
+    # Use Streamlit's native chat_input for better reliability
     st.markdown("### 💬 Chat with AI Assistant")
-    
-    # Create input area
-    input_col1, input_col2 = st.columns([4, 1])
-    
-    with input_col1:
-        user_input = st.text_input(
-            "Message:", 
-            key=f"user_chat_message_{st.session_state.chat_input_counter}", 
-            placeholder=placeholder,
-            label_visibility="collapsed"
-        )
-    
-    with input_col2:
-        send_clicked = st.button("💬 Send", key="send_chat", type="primary", use_container_width=True)
-    
-    # Handle Enter key submission with JavaScript
-    if user_input:
-        st.markdown(f"""
-        <script>
-        document.addEventListener('keydown', function(event) {{
-            if (event.key === 'Enter' && document.activeElement.getAttribute('data-testid') === 'stTextInput') {{
-                const sendButton = document.querySelector('[data-testid="stButton"] button');
-                if (sendButton) {{
-                    sendButton.click();
-                }}
-            }}
-        }});
-        </script>
-        """, unsafe_allow_html=True)
     
     # Handle quick messages first
     if initial_value and initial_value.strip():
         user_msg = initial_value.strip()
-    
-    # Process message when Send is clicked
-    elif send_clicked and user_input and user_input.strip():
-        user_msg = user_input.strip()
-        # Increment counter to reset input field on next render
-        st.session_state.chat_input_counter += 1
     else:
-        user_msg = None
+        # Use native chat input
+        user_msg = st.chat_input("Ask me to edit, sort, compute, chart...", key="chat_input")
     
-    # CRITICAL: Process the message immediately if we have one
-    if user_msg:
-        # Store confirmation message in session state to persist through rerun
-        st.session_state.last_message_sent = f"✅ Message sent: {user_msg[:50]}{'...' if len(user_msg) > 50 else ''}"
-        
+    # Process the message immediately if we have one
+    if user_msg and user_msg.strip():
         # Add to chat history
         st.session_state.chat_histories[st.session_state.current_sheet].append({
             "role": "user", 
-            "content": user_msg
+            "content": user_msg.strip()
         })
-        
-        # Set processing flag
-        st.session_state.chat_processing = True
         
         # Clear any quick message state
         if "quick_message" in st.session_state:
@@ -1847,65 +1768,35 @@ with st.sidebar:
             'type': 'user'
         })
         
-        # Force immediate rerun to process AI response
-        st.rerun()
-        
-    # Process AI response if we're in processing state
-    if st.session_state.get("chat_processing", False):
-        # Get the last user message to process
-        current_chat = st.session_state.chat_histories[st.session_state.current_sheet]
-        if current_chat and current_chat[-1]["role"] == "user":
-            user_msg_to_process = current_chat[-1]["content"]
+        # Process AI response immediately
+        try:
+            # Get chat history for context (excluding the message being processed)
+            current_chat = st.session_state.chat_histories[st.session_state.current_sheet]
+            chat_history = current_chat[:-1]  # Exclude the current message
             
-            # Show processing indicator
-            with st.spinner(f"🤖 AI is processing: {user_msg_to_process[:30]}..."):
-                try:
-                    # Get chat history for context (excluding the message being processed)
-                    chat_history = current_chat[:-1]
-                    
-                    # Validate model is accessible
-                    current_model = st.session_state.chat_model
-                    if not current_model:
-                        current_model = "gpt-4-turbo-2024-04-09"
-                        st.session_state.chat_model = current_model
-                    
-                    # Call the agent with context and selected model
-                    reply = run_agent(
-                        user_msg=user_msg_to_process,
-                        workbook=st.session_state.workbook,
-                        current_sheet=st.session_state.current_sheet,
-                        chat_history=chat_history,
-                        model_name=current_model
-                    )
-                    
-                    # Log AI operation
-                    timestamp = datetime.now().strftime("%H:%M:%S")
-                    st.session_state.ai_operations_log.append({
-                        'timestamp': timestamp,
-                        'operation': f"AI processed: {user_msg_to_process[:50]}...",
-                        'type': 'ai'
-                    })
-                    
-                except Exception as e:
-                    error_msg = str(e)
-                    
-                    # Try fallback model
-                    if "model_not_found" in error_msg or "does not have access" in error_msg:
-                        try:
-                            st.warning(f"⚠️ Trying fallback model...")
-                            fallback_model = "gpt-4-turbo-2024-04-09"
-                            reply = run_agent(
-                                user_msg=user_msg_to_process,
-                                workbook=st.session_state.workbook,
-                                current_sheet=st.session_state.current_sheet,
-                                chat_history=chat_history,
-                                model_name=fallback_model
-                            )
-                            st.session_state.chat_model = fallback_model
-                        except Exception as e2:
-                            reply = f"❌ Error: {str(e2)[:100]}..."
-                    else:
-                        reply = f"❌ Error: {error_msg[:100]}..."
+            # Validate model is accessible
+            current_model = st.session_state.chat_model
+            if not current_model:
+                current_model = "gpt-4-turbo-2024-04-09"
+                st.session_state.chat_model = current_model
+            
+            # Call the agent with context and selected model
+            with st.spinner(f"🤖 AI is processing: {user_msg[:30]}..."):
+                reply = run_agent(
+                    user_msg=user_msg.strip(),
+                    workbook=st.session_state.workbook,
+                    current_sheet=st.session_state.current_sheet,
+                    chat_history=chat_history,
+                    model_name=current_model
+                )
+                
+                # Log AI operation
+                timestamp = datetime.now().strftime("%H:%M:%S")
+                st.session_state.ai_operations_log.append({
+                    'timestamp': timestamp,
+                    'operation': f"AI processed: {user_msg[:50]}...",
+                    'type': 'ai'
+                })
                 
                 # Add assistant response to history
                 st.session_state.chat_histories[st.session_state.current_sheet].append({
@@ -1913,14 +1804,46 @@ with st.sidebar:
                     "content": reply
                 })
                 
-                # Clear processing flag
-                st.session_state.chat_processing = False
-                
-                # Store completion message in session state
-                st.session_state.ai_response_complete = "✅ AI response completed!"
-                
-                # Rerun to show the AI response
-                st.rerun()
+        except Exception as e:
+            error_msg = str(e)
+            
+            # Try fallback model
+            if "model_not_found" in error_msg or "does not have access" in error_msg:
+                try:
+                    st.warning(f"⚠️ Trying fallback model...")
+                    fallback_model = "gpt-4-turbo-2024-04-09"
+                    with st.spinner("🤖 AI is processing with fallback model..."):
+                        reply = run_agent(
+                            user_msg=user_msg.strip(),
+                            workbook=st.session_state.workbook,
+                            current_sheet=st.session_state.current_sheet,
+                            chat_history=chat_history,
+                            model_name=fallback_model
+                        )
+                        st.session_state.chat_model = fallback_model
+                        
+                        # Add assistant response to history
+                        st.session_state.chat_histories[st.session_state.current_sheet].append({
+                            "role": "assistant",
+                            "content": reply
+                        })
+                except Exception as e2:
+                    error_reply = f"❌ Error: {str(e2)[:100]}..."
+                    st.session_state.chat_histories[st.session_state.current_sheet].append({
+                        "role": "assistant",
+                        "content": error_reply
+                    })
+            else:
+                error_reply = f"❌ Error: {error_msg[:100]}..."
+                st.session_state.chat_histories[st.session_state.current_sheet].append({
+                    "role": "assistant",
+                    "content": error_reply
+                })
+        
+        # Rerun to show the updated chat
+        st.rerun()
+        
+
 
 # Status bar at bottom
 st.divider()
