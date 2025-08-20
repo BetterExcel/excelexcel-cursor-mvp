@@ -221,14 +221,14 @@ Requirements:
 6. Consider the context "{context}" when generating content
 7. Use professional naming conventions and realistic business data
 
-Return ONLY a JSON object with this structure:
+CRITICAL: Return ONLY a JSON object with this exact structure:
 {{
-  "column_name_1": ["value1", "value2", "value3", ...],
-  "column_name_2": ["value1", "value2", "value3", ...],
+  "{columns[0]['name']}": ["value1", "value2", "value3", ...],
+  "{columns[1]['name']}": ["value1", "value2", "value3", ...],
   ...
 }}
 
-Each array should have exactly {rows} values. Make the data professional and Excel-quality."""
+Use the EXACT column names provided. Each array should have exactly {rows} values. Return ONLY the JSON object, no explanations or markdown formatting."""
 
     try:
         response = client.chat.completions.create(
@@ -246,7 +246,14 @@ Each array should have exactly {rows} values. Make the data professional and Exc
         
         # Parse JSON response
         try:
-            data = json.loads(response_text)
+            # Clean up response text - remove any markdown code blocks
+            clean_response = response_text
+            if "```json" in clean_response:
+                clean_response = clean_response.split("```json")[1].split("```")[0].strip()
+            elif "```" in clean_response:
+                clean_response = clean_response.split("```")[1].split("```")[0].strip()
+            
+            data = json.loads(clean_response)
             
             # Validate structure
             for col in columns:
@@ -259,9 +266,13 @@ Each array should have exactly {rows} values. Make the data professional and Exc
             return data
             
         except json.JSONDecodeError as e:
+            # Log the raw response for debugging
+            print(f"DEBUG: AI returned invalid JSON. Raw response: {response_text[:500]}...")
             raise ValueError(f"AI returned invalid JSON: {e}")
             
     except Exception as e:
+        # Log more detailed error information
+        print(f"DEBUG: AI generation error details: {e}")
         raise ValueError(f"AI data generation failed: {e}")
 
 
