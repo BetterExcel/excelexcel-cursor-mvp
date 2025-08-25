@@ -1,6 +1,6 @@
 # Excel‑Cursor MVP - Enhanced AI Spreadsheet
 
-A powerful Excel‑like web application with advanced AI-powered spreadsheet assistant built with Streamlit and OpenAI GPT-4-Turbo. Features a modern ribbon interface, robust file management, and comprehensive formula support.
+A powerful Excel‑like web application with advanced AI-powered spreadsheet assistant built with Streamlit and OpenAI GPT-4-Turbo. Features a modern ribbon interface, robust file management, and comprehensive formula support. This app is deployed on https://paramshah07-excelexcel-cursor-mvp-streamlit-app-enhanced-yepqyt.streamlit.app/
 
 ## ✨ Features
 
