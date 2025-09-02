@@ -32,7 +32,7 @@ class ExplanationFormatter:
     def _get_default_preferences(self) -> Dict[str, Any]:
         """Get default formatting preferences."""
         return {
-            'use_emojis': True,
+            'use_emojis': False,
             'compact_mode': False,
             'highlight_key_info': True,
             'include_metadata': True,
@@ -44,16 +44,16 @@ class ExplanationFormatter:
     def _get_emoji_mapping(self) -> Dict[str, str]:
         """Get mapping of operation types to appropriate emojis."""
         return {
-            'data_creation': '📊',
-            'formula_application': '🧮',
-            'data_modification': '✏️',
-            'sorting': '🔄',
-            'filtering': '🔍',
-            'sheet_management': '📋',
-            'chart_creation': '📈',
-            'data_import': '📥',
-            'data_export': '📤',
-            'general': '📋'
+            'data_creation': '',
+            'formula_application': '',
+            'data_modification': '',
+            'sorting': '',
+            'filtering': '',
+            'sheet_management': '',
+            'chart_creation': '',
+            'data_import': '',
+            'data_export': '',
+            'general': ''
         }
     
     def format_explanation(
@@ -175,22 +175,20 @@ class ExplanationFormatter:
         Returns:
             Formatted summary card
         """
-        emoji = self.emoji_mapping.get(operation_type, '📋')
-        
         card_parts = [
-            f"{emoji} **{operation_type.replace('_', ' ').title()}**",
-            f"📊 **Changes:** {changes.get('summary', 'Operation completed')}",
-            f"📍 **Location:** {changes.get('location', 'Current sheet')}"
+            f"**{operation_type.replace('_', ' ').title()}**",
+            f"**Changes:** {changes.get('summary', 'Operation completed')}",
+            f"**Location:** {changes.get('location', 'Current sheet')}"
         ]
         
         # Add key data if available
         if changes.get('key_info'):
-            card_parts.append(f"🔢 **Data:** {changes['key_info']}")
+            card_parts.append(f"**Data:** {changes['key_info']}")
         
         # Add suggestions if available
         suggestions = changes.get('suggestions', [])
         if suggestions:
-            card_parts.append(f"💡 **Next:** {suggestions[0]}")
+            card_parts.append(f"**Next:** {suggestions[0]}")
         
         return '\n'.join(card_parts)
     
@@ -211,27 +209,25 @@ class ExplanationFormatter:
         Returns:
             Formatted detailed report
         """
-        emoji = self.emoji_mapping.get(operation_type, '📋')
-        
         report_parts = [
-            f"{emoji} **{operation_type.replace('_', ' ').title()} Report**",
+            f"**{operation_type.replace('_', ' ').title()} Report**",
             "=" * 50
         ]
         
         # Add main sections
         if changes.get('summary'):
-            report_parts.append(f"\n**📊 What Changed:**\n{changes['summary']}")
+            report_parts.append(f"\n**What Changed:**\n{changes['summary']}")
         
         if changes.get('location'):
-            report_parts.append(f"\n**📍 Location:**\n{changes['location']}")
+            report_parts.append(f"\n**Location:**\n{changes['location']}")
         
         if changes.get('key_info'):
-            report_parts.append(f"\n**🔢 Key Data:**\n{changes['key_info']}")
+            report_parts.append(f"\n**Key Data:**\n{changes['key_info']}")
         
         # Add data patterns if available
         if 'data_patterns' in changes and changes['data_patterns']:
             patterns = changes['data_patterns']
-            report_parts.append(f"\n**📈 Data Patterns:**")
+            report_parts.append(f"\n**Data Patterns:**")
             
             if 'numeric_summary' in patterns:
                 numeric_info = []
@@ -242,7 +238,7 @@ class ExplanationFormatter:
         # Add suggestions
         suggestions = changes.get('suggestions', [])
         if suggestions:
-            report_parts.append(f"\n**💡 Recommendations:**")
+            report_parts.append(f"\n**Recommendations:**")
             for i, suggestion in enumerate(suggestions[:5], 1):
                 report_parts.append(f"  {i}. {suggestion}")
         

@@ -25,84 +25,83 @@ class ExplanationTemplates:
         """Load the default explanation templates."""
         return {
             'data_creation': {
-                'title': '📊 Data Creation Summary',
-                'what_changed': '**📊 What Changed:** {summary}',
-                'location': '**📍 Location:** {location}',
-                'key_data': '**🔢 Key Data:** {key_info}',
-                'insights': '**💡 Insights:** {insights}',
-                'next_steps': '**📋 Next Steps:** {suggestions}'
+                'title': 'Data Creation Summary',
+                'what_changed': '**What Changed:** {summary}',
+                'location': '**Location:** {location}',
+                'key_data': '**Key Data:** {key_info}',
+                'insights': '**Insights:** {insights}',
+                'next_steps': '**Next Steps:** {suggestions}'
             },
             'formula_application': {
-                'title': '🧮 Formula Application Summary',
-                'what_changed': '**📊 What Changed:** {summary}',
-                'location': '**📍 Location:** {location}',
-                'key_data': '**🔢 Results:** {key_info}',
-                'insights': '**💡 Formula Insights:** {insights}',
-                'next_steps': '**📋 Next Steps:** {suggestions}'
+                'title': 'Formula Application Summary',
+                'what_changed': '**What Changed:** {summary}',
+                'location': '**Location:** {location}',
+                'key_data': '**Results:** {key_info}',
+                'insights': '**Formula Insights:** {insights}',
+                'next_steps': '**Next Steps:** {suggestions}'
             },
             'data_modification': {
-                'title': '✏️ Data Modification Summary',
-                'what_changed': '**📊 What Changed:** {summary}',
-                'location': '**📍 Location:** {location}',
-                'key_data': '**🔢 Changes:** {key_info}',
-                'insights': '**💡 Impact:** {insights}',
-                'next_steps': '**📋 Next Steps:** {suggestions}'
+                'title': 'Data Modification Summary',
+                'what_changed': '**What Changed:** {summary}',
+                'location': '**Location:** {location}',
+                'key_data': '**Changes:** {key_info}',
+                'insights': '**Impact:** {insights}',
+                'next_steps': '**Next Steps:** {suggestions}'
             },
             'sorting': {
-                'title': '🔄 Data Sorting Summary',
-                'what_changed': '**📊 What Changed:** {summary}',
-                'location': '**📍 Location:** {location}',
-                'key_data': '**🔢 Sort Details:** {key_info}',
-                'insights': '**💡 Order:** {insights}',
-                'next_steps': '**📋 Next Steps:** {suggestions}'
+                'title': 'Data Sorting Summary',
+                'what_changed': '**What Changed:** {summary}',
+                'location': '**Location:** {location}',
+                'key_data': '**Sort Details:** {key_info}',
+                'insights': '**Order:** {insights}',
+                'next_steps': '**Next Steps:** {suggestions}'
             },
             'filtering': {
-                'title': '🔍 Data Filtering Summary',
-                'what_changed': '**📊 What Changed:** {summary}',
-                'location': '**📍 Location:** {location}',
-                'key_data': '**🔢 Filter Results:** {key_info}',
-                'insights': '**💡 Filtered Data:** {insights}',
-                'next_steps': '**📋 Next Steps:** {suggestions}'
+                'title': 'Data Filtering Summary',
+                'what_changed': '**What Changed:** {summary}',
+                'location': '**Location:** {location}',
+                'key_data': '**Filter Results:** {key_info}',
+                'insights': '**Filtered Data:** {insights}',
+                'next_steps': '**Next Steps:** {suggestions}'
             },
             'sheet_management': {
-                'title': '📋 Sheet Management Summary',
-                'what_changed': '**📊 What Changed:** {summary}',
-                'location': '**📍 Location:** {location}',
-                'key_data': '**🔢 Sheet Info:** {key_info}',
-                'insights': '**💡 Structure:** {insights}',
-                'next_steps': '**📋 Next Steps:** {suggestions}'
+                'title': 'Sheet Management Summary',
+                'what_changed': '**What Changed:** {summary}',
+                'location': '**Location:** {location}',
+                'key_data': '**Sheet Info:** {key_info}',
+                'insights': '**Structure:** {insights}',
+                'next_steps': '**Next Steps:** {suggestions}'
             },
             'chart_creation': {
-                'title': '📈 Chart Creation Summary',
-                'what_changed': '**📊 What Changed:** {summary}',
-                'location': '**📍 Location:** {location}',
-                'key_data': '**🔢 Chart Details:** {key_info}',
-                'insights': '**💡 Visualization:** {insights}',
-                'next_steps': '**📋 Next Steps:** {suggestions}'
+                'title': 'Chart Creation Summary',
+                'what_changed': '**What Changed:** {summary}',
+                'location': '**Location:** {location}',
+                'key_data': '**Chart Details:** {key_info}',
+                'insights': '**Visualization:** {insights}',
+                'next_steps': '**Next Steps:** {suggestions}'
             },
             'data_import': {
-                'title': '📥 Data Import Summary',
-                'what_changed': '**📊 What Changed:** {summary}',
-                'location': '**📍 Location:** {location}',
-                'key_data': '**🔢 Import Details:** {key_info}',
-                'insights': '**💡 Data Quality:** {insights}',
-                'next_steps': '**📋 Next Steps:** {suggestions}'
+                'title': 'Data Import Summary',
+                'what_changed': '**What Changed:** {summary}',
+                'location': '**Location:** {location}',
+                'key_data': '**Import Details:** {key_info}',
+                'insights': '**Data Quality:** {insights}',
+                'next_steps': '**Next Steps:** {suggestions}'
             },
             'data_export': {
-                'title': '📤 Data Export Summary',
-                'what_changed': '**📊 What Changed:** {summary}',
-                'location': '**📍 Location:** {location}',
-                'key_data': '**🔢 Export Details:** {key_info}',
-                'insights': '**💡 Export Status:** {insights}',
-                'next_steps': '**📋 Next Steps:** {suggestions}'
+                'title': 'Data Export Summary',
+                'what_changed': '**What Changed:** {summary}',
+                'location': '**Location:** {location}',
+                'key_data': '**Export Details:** {key_info}',
+                'insights': '**Export Status:** {insights}',
+                'next_steps': '**Next Steps:** {suggestions}'
             },
             'general': {
-                'title': '📋 Operation Summary',
-                'what_changed': '**📊 What Changed:** {summary}',
-                'location': '**📍 Location:** {location}',
-                'key_data': '**🔢 Key Information:** {key_info}',
-                'insights': '**💡 Insights:** {insights}',
-                'next_steps': '**📋 Next Steps:** {suggestions}'
+                'title': 'Operation Summary',
+                'what_changed': '**What Changed:** {summary}',
+                'location': '**Location:** {location}',
+                'key_data': '**Key Information:** {key_info}',
+                'next_steps': '**Next Steps:** {suggestions}'
             }
         }
     

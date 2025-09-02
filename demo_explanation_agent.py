@@ -44,7 +44,7 @@ def create_sample_data():
 
 def demo_change_detection():
     """Demonstrate the change detection system."""
-    print("🔍 **Change Detection Demo**")
+    print("**Change Detection Demo**")
     print("=" * 50)
     
     before_df, after_df = create_sample_data()
@@ -58,14 +58,14 @@ def demo_change_detection():
         operation_context={'user_request': 'Create table with numbers 1-10 in first 5 columns'}
     )
     
-    print(f"📊 **Operation Type:** {changes['operation_type']}")
-    print(f"📈 **Rows Added:** {changes['rows_added']}")
-    print(f"📋 **Columns Added:** {changes['columns_added']}")
-    print(f"🔢 **Total Cells Changed:** {changes['total_cells_changed']}")
-    print(f"📍 **Location:** {changes['location']}")
-    print(f"💡 **Summary:** {changes['summary']}")
+    print(f"**Operation Type:** {changes['operation_type']}")
+    print(f"**Rows Added:** {changes['rows_added']}")
+    print(f"**Columns Added:** {changes['columns_added']}")
+    print(f"**Total Cells Changed:** {changes['total_cells_changed']}")
+    print(f"**Location:** {changes['location']}")
+    print(f"**Summary:** {changes['summary']}")
     
-    print("\n📋 **Suggestions:**")
+    print("\n**Suggestions:**")
     for i, suggestion in enumerate(changes['suggestions'], 1):
         print(f"  {i}. {suggestion}")
     
@@ -74,7 +74,7 @@ def demo_change_detection():
 
 def demo_templates():
     """Demonstrate the explanation templates system."""
-    print("\n🎨 **Explanation Templates Demo**")
+    print("\n**Explanation Templates Demo**")
     print("=" * 50)
     
     # Create sample changes
@@ -91,7 +91,7 @@ def demo_templates():
     operation_types = ['data_creation', 'formula_application', 'data_modification']
     
     for op_type in operation_types:
-        print(f"\n📝 **{op_type.replace('_', ' ').title()} Template:**")
+        print(f"\n**{op_type.replace('_', ' ').title()} Template:**")
         explanation = templates.generate_explanation(op_type, changes)
         print(explanation)
         print("-" * 30)
@@ -101,7 +101,7 @@ def demo_templates():
 
 def demo_workflow():
     """Demonstrate the workflow system."""
-    print("\n🔄 **Workflow Demo**")
+    print("\n**Workflow Demo**")
     print("=" * 50)
     
     before_df, after_df = create_sample_data()
@@ -111,17 +111,17 @@ def demo_workflow():
         
         # Test workflow status
         status = workflow.get_workflow_status()
-        print(f"✅ **Workflow Status:**")
+        print(f"**Workflow Status:**")
         for key, value in status.items():
             print(f"  • {key}: {value}")
         
         # Test workflow functionality
-        print(f"\n🧪 **Testing Workflow:**")
+        print(f"\n**Testing Workflow:**")
         test_result = workflow.test_workflow()
-        print(f"  • Workflow Test: {'✅ PASSED' if test_result else '❌ FAILED'}")
+        print(f"  • Workflow Test: {'PASSED' if test_result else 'FAILED'}")
         
         # Generate explanation using workflow
-        print(f"\n🚀 **Generating Explanation:**")
+        print(f"\n**Generating Explanation:**")
         explanation = workflow.generate_explanation(
             operation_type='data_creation',
             before_df=before_df,
@@ -129,14 +129,14 @@ def demo_workflow():
             operation_context={'test': True}
         )
         
-        print("📋 **Generated Explanation:**")
+        print("**Generated Explanation:**")
         print(explanation)
         
         return workflow
         
     except Exception as e:
-        print(f"❌ **Workflow Error:** {str(e)}")
-        print("🔄 **Falling back to quick explanation:**")
+        print(f"**Workflow Error:** {str(e)}")
+        print("**Falling back to quick explanation:**")
         
         # Use quick explanation as fallback
         explanation = quick_explanation(
@@ -148,18 +148,18 @@ def demo_workflow():
 
 def demo_formatting():
     """Demonstrate the formatting system."""
-    print("\n🎨 **Formatting Demo**")
+    print("\n**Formatting Demo**")
     print("=" * 50)
     
     # Sample explanation
     sample_explanation = """
-📊 Data Creation Summary
+Data Creation Summary
 
-**📊 What Changed:** Created data with 10 rows and 5 columns
-**📍 Location:** Sheet1, columns A-E, rows 1-10
-**🔢 Key Data:** 5 columns, 10 rows, 50 total cells
-**💡 Insights:** Data includes 2 numeric columns for analysis
-**📋 Next Steps:** 
+**What Changed:** Created data with 10 rows and 5 columns
+**Location:** Sheet1, columns A-E, rows 1-10
+**Key Data:** 5 columns, 10 rows, 50 total cells
+**Insights:** Data includes 2 numeric columns for analysis
+**Next Steps:** 
 1. Try adding formulas to calculate totals or averages
 2. Create charts to visualize the data patterns
 3. Use filters to explore specific data subsets
@@ -177,7 +177,7 @@ def demo_formatting():
     ]
     
     for style_name, style_config in styles:
-        print(f"\n🎯 **{style_name} Style:**")
+        print(f"\n**{style_name} Style:**")
         formatted = formatter.format_explanation(
             sample_explanation, 'data_creation', style_config
         )
@@ -189,33 +189,33 @@ def demo_formatting():
 
 def demo_integration():
     """Demonstrate the complete integrated system."""
-    print("\n🚀 **Complete Integration Demo**")
+    print("\n**Complete Integration Demo**")
     print("=" * 50)
     
     before_df, after_df = create_sample_data()
     
     # Step 1: Change Detection
-    print("🔍 **Step 1: Change Detection**")
+    print("**Step 1: Change Detection**")
     detector = ChangeDetector()
     changes = detector.detect_changes(
         before_df, after_df, 'data_creation', {'user_request': 'Create table 1-10'}
     )
-    print(f"✅ Changes detected: {changes['summary']}")
+    print(f"Changes detected: {changes['summary']}")
     
     # Step 2: Template Generation
-    print("\n🎨 **Step 2: Template Generation**")
+    print("\n**Step 2: Template Generation**")
     templates = ExplanationTemplates()
     explanation = templates.generate_explanation('data_creation', changes)
-    print(f"✅ Explanation generated: {len(explanation)} characters")
+    print(f"Explanation generated: {len(explanation)} characters")
     
     # Step 3: Formatting
-    print("\n🎨 **Step 3: Formatting**")
+    print("\n**Step 3: Formatting**")
     formatter = ExplanationFormatter()
     formatted = formatter.format_explanation(explanation, 'data_creation')
-    print(f"✅ Explanation formatted: {len(formatted)} characters")
+    print(f"Explanation formatted: {len(formatted)} characters")
     
     # Final Result
-    print("\n🎯 **Final Result:**")
+    print("\n**Final Result:**")
     print(formatted)
     
     return {
@@ -227,7 +227,7 @@ def demo_integration():
 
 def demo_real_scenarios():
     """Demonstrate real-world spreadsheet scenarios."""
-    print("\n🌍 **Real-World Scenarios Demo**")
+    print("\n**Real-World Scenarios Demo**")
     print("=" * 50)
     
     scenarios = [
@@ -259,7 +259,7 @@ def demo_real_scenarios():
     ]
     
     for scenario in scenarios:
-        print(f"\n📋 **Scenario: {scenario['name']}**")
+        print(f"\n**Scenario: {scenario['name']}**")
         print("-" * 30)
         
         try:
@@ -271,14 +271,14 @@ def demo_real_scenarios():
             )
             print(explanation)
         except Exception as e:
-            print(f"❌ Error: {str(e)}")
+            print(f"Error: {str(e)}")
         
         print("-" * 30)
 
 
 def main():
     """Run all demos."""
-    print("🤖 **Explanation Agent System - Complete Demo**")
+    print("**Explanation Agent System - Complete Demo**")
     print("=" * 60)
     print("This demo showcases the complete explanation agent system")
     print("with change detection, templates, workflow, and formatting.")
@@ -293,19 +293,19 @@ def main():
         integration_result = demo_integration()
         demo_real_scenarios()
         
-        print("\n🎉 **All Demos Completed Successfully!**")
+        print("\n**All Demos Completed Successfully!**")
         print("=" * 60)
-        print("✅ Change Detection: Working")
-        print("✅ Templates: Working")
-        print("✅ Workflow: Working")
-        print("✅ Formatting: Working")
-        print("✅ Integration: Working")
+        print("Change Detection: Working")
+        print("Templates: Working")
+        print("Workflow: Working")
+        print("Formatting: Working")
+        print("Integration: Working")
         print()
-        print("🚀 **Your Explanation Agent is Ready!**")
+        print("**Your Explanation Agent is Ready!**")
         print("You can now integrate this into your AI spreadsheet assistant.")
         
     except Exception as e:
-        print(f"\n❌ **Demo Error:** {str(e)}")
+        print(f"\n**Demo Error:** {str(e)}")
         print("Please check the error and ensure all dependencies are installed.")
 
 
