@@ -26,6 +26,8 @@ from app.services.workbook import (
 from app.ui.formula import evaluate_formula
 from app.agent.agent import run_agent, probe_models
 from app.explanation import ExplanationWorkflow
+from app.explanation.intelligent_workflow import IntelligentExplanationWorkflow
+from app.explanation.local_llm import get_local_llm, check_local_llm_availability
 import app.charts as charts
 
 st.set_page_config(page_title="Excel‑Cursor MVP - Enhanced", layout="wide", initial_sidebar_state="expanded")
@@ -1036,8 +1038,30 @@ with st.sidebar:
             value=st.session_state.enable_explanations,
             help="Show detailed explanations of what changed after each AI operation"
         )
+        
         if st.session_state.enable_explanations:
-            st.success("✅ Explanations enabled - You'll see detailed summaries after each operation")
+            # Check LLM availability
+            llm_info = check_local_llm_availability()
+            
+            if llm_info['is_available']:
+                st.success(f"✅ Intelligent explanations enabled using {llm_info['provider_type']}")
+                st.info(f"🤖 Using local LLM: {llm_info['model_name']}")
+            else:
+                st.warning("⚠️ Using basic explanations (no local LLM available)")
+                st.info("💡 Install Ollama or other local LLM for intelligent explanations")
+            
+            # Show available providers
+            with st.expander("🔧 Local LLM Options", expanded=False):
+                providers = llm_info['available_providers']
+                for provider, available in providers.items():
+                    status = "✅ Available" if available else "❌ Not Available"
+                    st.text(f"{provider.title()}: {status}")
+                
+                if not any(providers.values()):
+                    st.info("💡 To enable intelligent explanations, install one of:")
+                    st.text("• pip install langchain-community[ollama]")
+                    st.text("• pip install langchain-community[localai]")
+                    st.text("• pip install transformers torch")
         else:
             st.info("ℹ️ Explanations disabled - Only basic AI responses will be shown")
     
@@ -1818,40 +1842,78 @@ with st.sidebar:
                     'type': 'ai'
                 })
                 
-                # Generate explanation using the explanation agent (if enabled)
+                # Generate intelligent explanation using LangChain + LangGraph (if enabled)
                 if st.session_state.enable_explanations:
                     try:
-                        explanation_workflow = ExplanationWorkflow()
+                        # Try to get a local LLM for intelligent explanations
+                        local_llm = get_local_llm()
                         
-                        # Determine operation type based on user message
-                        operation_type = 'general'
-                        user_msg_lower = user_msg.lower()
-                        if any(word in user_msg_lower for word in ['create', 'add', 'generate', 'make', 'want', 'need', 'populate', 'fill', 'put', 'insert']):
-                            operation_type = 'data_creation'
-                        elif any(word in user_msg_lower for word in ['formula', 'calculate', 'sum', 'average', 'compute', 'math']):
-                            operation_type = 'formula_application'
-                        elif any(word in user_msg_lower for word in ['sort', 'order', 'arrange', 'organize']):
-                            operation_type = 'sorting'
-                        elif any(word in user_msg_lower for word in ['filter', 'find', 'search', 'look', 'show']):
-                            operation_type = 'filtering'
-                        elif any(word in user_msg_lower for word in ['chart', 'graph', 'plot', 'visualize']):
-                            operation_type = 'chart_creation'
-                        
-                        # Generate explanation
-                        explanation = explanation_workflow.generate_explanation(
-                            operation_type=operation_type,
-                            before_df=before_workbook.get(st.session_state.current_sheet, pd.DataFrame()),
-                            after_df=st.session_state.workbook.get(st.session_state.current_sheet, pd.DataFrame()),
-                            operation_context={
-                                'user_request': user_msg,
-                                'operation_type': operation_type,
-                                'timestamp': timestamp
-                            }
-                        )
-                        
-                        # Combine AI response with explanation
-                        full_response = f"{reply}\n\n---\n\n{explanation}"
-                        
+                        if local_llm:
+                            # Use intelligent workflow with LangChain + LangGraph
+                            intelligent_workflow = IntelligentExplanationWorkflow(local_llm)
+                            
+                            # Determine operation type based on user message
+                            operation_type = 'general'
+                            user_msg_lower = user_msg.lower()
+                            if any(word in user_msg_lower for word in ['create', 'add', 'generate', 'make', 'want', 'need', 'populate', 'fill', 'put', 'insert']):
+                                operation_type = 'data_creation'
+                            elif any(word in user_msg_lower for word in ['formula', 'calculate', 'sum', 'average', 'compute', 'math']):
+                                operation_type = 'formula_application'
+                            elif any(word in user_msg_lower for word in ['sort', 'order', 'arrange', 'organize']):
+                                operation_type = 'sorting'
+                            elif any(word in user_msg_lower for word in ['filter', 'find', 'search', 'look', 'show']):
+                                operation_type = 'filtering'
+                            elif any(word in user_msg_lower for word in ['chart', 'graph', 'plot', 'visualize']):
+                                operation_type = 'chart_creation'
+                            
+                            # Generate intelligent explanation
+                            explanation = intelligent_workflow.generate_intelligent_explanation(
+                                operation_type=operation_type,
+                                before_df=before_workbook.get(st.session_state.current_sheet, pd.DataFrame()),
+                                after_df=st.session_state.workbook.get(st.session_state.current_sheet, pd.DataFrame()),
+                                operation_context={
+                                    'user_request': user_msg,
+                                    'operation_type': operation_type,
+                                    'timestamp': timestamp
+                                }
+                            )
+                            
+                            # Combine AI response with intelligent explanation
+                            full_response = f"{reply}\n\n---\n\n{explanation}"
+                            
+                        else:
+                            # Fallback to basic explanation workflow
+                            explanation_workflow = ExplanationWorkflow()
+                            
+                            # Determine operation type based on user message
+                            operation_type = 'general'
+                            user_msg_lower = user_msg.lower()
+                            if any(word in user_msg_lower for word in ['create', 'add', 'generate', 'make', 'want', 'need', 'populate', 'fill', 'put', 'insert']):
+                                operation_type = 'data_creation'
+                            elif any(word in user_msg_lower for word in ['formula', 'calculate', 'sum', 'average', 'compute', 'math']):
+                                operation_type = 'formula_application'
+                            elif any(word in user_msg_lower for word in ['sort', 'order', 'arrange', 'organize']):
+                                operation_type = 'sorting'
+                            elif any(word in user_msg_lower for word in ['filter', 'find', 'search', 'look', 'show']):
+                                operation_type = 'filtering'
+                            elif any(word in user_msg_lower for word in ['chart', 'graph', 'plot', 'visualize']):
+                                operation_type = 'chart_creation'
+                            
+                            # Generate basic explanation
+                            explanation = explanation_workflow.generate_explanation(
+                                operation_type=operation_type,
+                                before_df=before_workbook.get(st.session_state.current_sheet, pd.DataFrame()),
+                                after_df=st.session_state.workbook.get(st.session_state.current_sheet, pd.DataFrame()),
+                                operation_context={
+                                    'user_request': user_msg,
+                                    'operation_type': operation_type,
+                                    'timestamp': timestamp
+                                }
+                            )
+                            
+                            # Combine AI response with basic explanation
+                            full_response = f"{reply}\n\n---\n\n{explanation}"
+                            
                     except Exception as e:
                         # If explanation fails, just use the AI response
                         st.warning(f"⚠️ Explanation generation failed: {str(e)[:100]}...")
@@ -1887,37 +1949,75 @@ with st.sidebar:
                         # Generate explanation for fallback response too (if enabled)
                         if st.session_state.enable_explanations:
                             try:
-                                explanation_workflow = ExplanationWorkflow()
+                                # Try to get a local LLM for intelligent explanations
+                                local_llm = get_local_llm()
                                 
-                                # Determine operation type based on user message
-                                operation_type = 'general'
-                                user_msg_lower = user_msg.lower()
-                                if any(word in user_msg_lower for word in ['create', 'add', 'generate', 'make', 'want', 'need', 'populate', 'fill', 'put', 'insert']):
-                                    operation_type = 'data_creation'
-                                elif any(word in user_msg_lower for word in ['formula', 'calculate', 'sum', 'average', 'compute', 'math']):
-                                    operation_type = 'formula_application'
-                                elif any(word in user_msg_lower for word in ['sort', 'order', 'arrange', 'organize']):
-                                    operation_type = 'sorting'
-                                elif any(word in user_msg_lower for word in ['filter', 'find', 'search', 'look', 'show']):
-                                    operation_type = 'filtering'
-                                elif any(word in user_msg_lower for word in ['chart', 'graph', 'plot', 'visualize']):
-                                    operation_type = 'chart_creation'
-                                
-                                # Generate explanation
-                                explanation = explanation_workflow.generate_explanation(
-                                    operation_type=operation_type,
-                                    before_df=before_workbook.get(st.session_state.current_sheet, pd.DataFrame()),
-                                    after_df=st.session_state.workbook.get(st.session_state.current_sheet, pd.DataFrame()),
-                                    operation_context={
-                                        'user_request': user_msg,
-                                        'operation_type': operation_type,
-                                        'timestamp': timestamp
-                                    }
-                                )
-                                
-                                # Combine AI response with explanation
-                                full_response = f"{reply}\n\n---\n\n{explanation}"
-                                
+                                if local_llm:
+                                    # Use intelligent workflow with LangChain + LangGraph
+                                    intelligent_workflow = IntelligentExplanationWorkflow(local_llm)
+                                    
+                                    # Determine operation type based on user message
+                                    operation_type = 'general'
+                                    user_msg_lower = user_msg.lower()
+                                    if any(word in user_msg_lower for word in ['create', 'add', 'generate', 'make', 'want', 'need', 'populate', 'fill', 'put', 'insert']):
+                                        operation_type = 'data_creation'
+                                    elif any(word in user_msg_lower for word in ['formula', 'calculate', 'sum', 'average', 'compute', 'math']):
+                                        operation_type = 'formula_application'
+                                    elif any(word in user_msg_lower for word in ['sort', 'order', 'arrange', 'organize']):
+                                        operation_type = 'sorting'
+                                    elif any(word in user_msg_lower for word in ['filter', 'find', 'search', 'look', 'show']):
+                                        operation_type = 'filtering'
+                                    elif any(word in user_msg_lower for word in ['chart', 'graph', 'plot', 'visualize']):
+                                        operation_type = 'chart_creation'
+                                    
+                                    # Generate intelligent explanation
+                                    explanation = intelligent_workflow.generate_intelligent_explanation(
+                                        operation_type=operation_type,
+                                        before_df=before_workbook.get(st.session_state.current_sheet, pd.DataFrame()),
+                                        after_df=before_workbook.get(st.session_state.current_sheet, pd.DataFrame()),
+                                        operation_context={
+                                            'user_request': user_msg,
+                                            'operation_type': operation_type,
+                                            'timestamp': timestamp
+                                        }
+                                    )
+                                    
+                                    # Combine AI response with intelligent explanation
+                                    full_response = f"{reply}\n\n---\n\n{explanation}"
+                                    
+                                else:
+                                    # Fallback to basic explanation workflow
+                                    explanation_workflow = ExplanationWorkflow()
+                                    
+                                    # Determine operation type based on user message
+                                    operation_type = 'general'
+                                    user_msg_lower = user_msg.lower()
+                                    if any(word in user_msg_lower for word in ['create', 'add', 'generate', 'make', 'want', 'need', 'populate', 'fill', 'put', 'insert']):
+                                        operation_type = 'data_creation'
+                                    elif any(word in user_msg_lower for word in ['formula', 'calculate', 'sum', 'average', 'compute', 'math']):
+                                        operation_type = 'formula_application'
+                                    elif any(word in user_msg_lower for word in ['sort', 'order', 'arrange', 'organize']):
+                                        operation_type = 'sorting'
+                                    elif any(word in user_msg_lower for word in ['filter', 'find', 'search', 'look', 'show']):
+                                        operation_type = 'filtering'
+                                    elif any(word in user_msg_lower for word in ['chart', 'graph', 'plot', 'visualize']):
+                                        operation_type = 'chart_creation'
+                                    
+                                    # Generate basic explanation
+                                    explanation = explanation_workflow.generate_explanation(
+                                        operation_type=operation_type,
+                                        before_df=before_workbook.get(st.session_state.current_sheet, pd.DataFrame()),
+                                        after_df=before_workbook.get(st.session_state.current_sheet, pd.DataFrame()),
+                                        operation_context={
+                                            'user_request': user_msg,
+                                            'operation_type': operation_type,
+                                            'timestamp': timestamp
+                                        }
+                                    )
+                                    
+                                    # Combine AI response with basic explanation
+                                    full_response = f"{reply}\n\n---\n\n{explanation}"
+                                    
                             except Exception as e:
                                 # If explanation fails, just use the AI response
                                 st.warning(f"⚠️ Explanation generation failed: {str(e)[:100]}...")
