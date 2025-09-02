@@ -1826,15 +1826,15 @@ with st.sidebar:
                         # Determine operation type based on user message
                         operation_type = 'general'
                         user_msg_lower = user_msg.lower()
-                        if any(word in user_msg_lower for word in ['create', 'add', 'generate', 'make']):
+                        if any(word in user_msg_lower for word in ['create', 'add', 'generate', 'make', 'want', 'need', 'populate', 'fill', 'put', 'insert']):
                             operation_type = 'data_creation'
-                        elif any(word in user_msg_lower for word in ['formula', 'calculate', 'sum', 'average']):
+                        elif any(word in user_msg_lower for word in ['formula', 'calculate', 'sum', 'average', 'compute', 'math']):
                             operation_type = 'formula_application'
-                        elif any(word in user_msg_lower for word in ['sort', 'order', 'arrange']):
+                        elif any(word in user_msg_lower for word in ['sort', 'order', 'arrange', 'organize']):
                             operation_type = 'sorting'
-                        elif any(word in user_msg_lower for word in ['filter', 'find', 'search']):
+                        elif any(word in user_msg_lower for word in ['filter', 'find', 'search', 'look', 'show']):
                             operation_type = 'filtering'
-                        elif any(word in user_msg_lower for word in ['chart', 'graph', 'plot']):
+                        elif any(word in user_msg_lower for word in ['chart', 'graph', 'plot', 'visualize']):
                             operation_type = 'chart_creation'
                         
                         # Generate explanation
@@ -1892,15 +1892,15 @@ with st.sidebar:
                                 # Determine operation type based on user message
                                 operation_type = 'general'
                                 user_msg_lower = user_msg.lower()
-                                if any(word in user_msg_lower for word in ['create', 'add', 'generate', 'make']):
+                                if any(word in user_msg_lower for word in ['create', 'add', 'generate', 'make', 'want', 'need', 'populate', 'fill', 'put', 'insert']):
                                     operation_type = 'data_creation'
-                                elif any(word in user_msg_lower for word in ['formula', 'calculate', 'sum', 'average']):
+                                elif any(word in user_msg_lower for word in ['formula', 'calculate', 'sum', 'average', 'compute', 'math']):
                                     operation_type = 'formula_application'
-                                elif any(word in user_msg_lower for word in ['sort', 'order', 'arrange']):
+                                elif any(word in user_msg_lower for word in ['sort', 'order', 'arrange', 'organize']):
                                     operation_type = 'sorting'
-                                elif any(word in user_msg_lower for word in ['filter', 'find', 'search']):
+                                elif any(word in user_msg_lower for word in ['filter', 'find', 'search', 'look', 'show']):
                                     operation_type = 'filtering'
-                                elif any(word in user_msg_lower for word in ['chart', 'graph', 'plot']):
+                                elif any(word in user_msg_lower for word in ['chart', 'graph', 'plot', 'visualize']):
                                     operation_type = 'chart_creation'
                                 
                                 # Generate explanation
