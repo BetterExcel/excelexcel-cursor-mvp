@@ -13,7 +13,7 @@ import logging
 # Try to import various local LLM options
 try:
     # Option 1: Ollama (most popular local option)
-    from langchain_community.llms import Ollama
+    from langchain_ollama import OllamaLLM
     OLLAMA_AVAILABLE = True
 except ImportError:
     OLLAMA_AVAILABLE = False
@@ -83,7 +83,7 @@ class LocalLLMProvider:
         """Initialize Ollama LLM."""
         try:
             # Try to connect to Ollama
-            self.llm = Ollama(
+            self.llm = OllamaLLM(
                 model="llama3.2:3b",  # Lightweight model
                 base_url="http://localhost:11434"
             )
