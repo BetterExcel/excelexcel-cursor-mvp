@@ -25,6 +25,7 @@ from app.services.workbook import (
 )
 from app.ui.formula import evaluate_formula
 from app.agent.agent import run_agent, probe_models
+from app.explanation import ExplanationWorkflow
 import app.charts as charts
 
 st.set_page_config(page_title="Excel‑Cursor MVP - Enhanced", layout="wide", initial_sidebar_state="expanded")
@@ -437,6 +438,8 @@ if "chat_model" not in st.session_state:
     st.session_state.chat_model = os.getenv("OPENAI_CHAT_MODEL") or os.getenv("OPENAI_MODEL") or "gpt-4-turbo-2024-04-09"
 if "model_probe" not in st.session_state:
     st.session_state.model_probe = None
+if "enable_explanations" not in st.session_state:
+    st.session_state.enable_explanations = True
 
 # Upload tracking to prevent duplicates
 if "last_uploaded_file" not in st.session_state:
@@ -1025,6 +1028,18 @@ with st.sidebar:
     # Appearance controls
     with st.expander("🎨 Appearance", expanded=False):
         theme_choice = st.selectbox("Theme", ["Auto", "Light", "Dark"], index=0, key="theme_choice")
+    
+    # Explanation agent controls
+    with st.expander("🤖 AI Assistant", expanded=False):
+        st.session_state.enable_explanations = st.checkbox(
+            "Enable Smart Explanations", 
+            value=st.session_state.enable_explanations,
+            help="Show detailed explanations of what changed after each AI operation"
+        )
+        if st.session_state.enable_explanations:
+            st.success("✅ Explanations enabled - You'll see detailed summaries after each operation")
+        else:
+            st.info("ℹ️ Explanations disabled - Only basic AI responses will be shown")
     
     # Apply theme overrides with higher specificity
     if st.session_state.get("theme_choice") == "Light":
@@ -1780,6 +1795,11 @@ with st.sidebar:
                 current_model = "gpt-4-turbo-2024-04-09"
                 st.session_state.chat_model = current_model
             
+            # Capture workbook state BEFORE AI operation for explanation
+            before_workbook = {}
+            for sheet_name in st.session_state.workbook.keys():
+                before_workbook[sheet_name] = st.session_state.workbook[sheet_name].copy()
+            
             # Call the agent with context and selected model
             with st.spinner(f"🤖 AI is processing: {user_msg[:30]}..."):
                 reply = run_agent(
@@ -1798,10 +1818,52 @@ with st.sidebar:
                     'type': 'ai'
                 })
                 
-                # Add assistant response to history
+                # Generate explanation using the explanation agent (if enabled)
+                if st.session_state.enable_explanations:
+                    try:
+                        explanation_workflow = ExplanationWorkflow()
+                        
+                        # Determine operation type based on user message
+                        operation_type = 'general'
+                        user_msg_lower = user_msg.lower()
+                        if any(word in user_msg_lower for word in ['create', 'add', 'generate', 'make']):
+                            operation_type = 'data_creation'
+                        elif any(word in user_msg_lower for word in ['formula', 'calculate', 'sum', 'average']):
+                            operation_type = 'formula_application'
+                        elif any(word in user_msg_lower for word in ['sort', 'order', 'arrange']):
+                            operation_type = 'sorting'
+                        elif any(word in user_msg_lower for word in ['filter', 'find', 'search']):
+                            operation_type = 'filtering'
+                        elif any(word in user_msg_lower for word in ['chart', 'graph', 'plot']):
+                            operation_type = 'chart_creation'
+                        
+                        # Generate explanation
+                        explanation = explanation_workflow.generate_explanation(
+                            operation_type=operation_type,
+                            before_df=before_workbook.get(st.session_state.current_sheet, pd.DataFrame()),
+                            after_df=st.session_state.workbook.get(st.session_state.current_sheet, pd.DataFrame()),
+                            operation_context={
+                                'user_request': user_msg,
+                                'operation_type': operation_type,
+                                'timestamp': timestamp
+                            }
+                        )
+                        
+                        # Combine AI response with explanation
+                        full_response = f"{reply}\n\n---\n\n{explanation}"
+                        
+                    except Exception as e:
+                        # If explanation fails, just use the AI response
+                        st.warning(f"⚠️ Explanation generation failed: {str(e)[:100]}...")
+                        full_response = reply
+                else:
+                    # Explanations disabled, use only AI response
+                    full_response = reply
+                
+                # Add combined response to history
                 st.session_state.chat_histories[st.session_state.current_sheet].append({
                     "role": "assistant",
-                    "content": reply
+                    "content": full_response
                 })
                 
         except Exception as e:
@@ -1822,10 +1884,52 @@ with st.sidebar:
                         )
                         st.session_state.chat_model = fallback_model
                         
-                        # Add assistant response to history
+                        # Generate explanation for fallback response too (if enabled)
+                        if st.session_state.enable_explanations:
+                            try:
+                                explanation_workflow = ExplanationWorkflow()
+                                
+                                # Determine operation type based on user message
+                                operation_type = 'general'
+                                user_msg_lower = user_msg.lower()
+                                if any(word in user_msg_lower for word in ['create', 'add', 'generate', 'make']):
+                                    operation_type = 'data_creation'
+                                elif any(word in user_msg_lower for word in ['formula', 'calculate', 'sum', 'average']):
+                                    operation_type = 'formula_application'
+                                elif any(word in user_msg_lower for word in ['sort', 'order', 'arrange']):
+                                    operation_type = 'sorting'
+                                elif any(word in user_msg_lower for word in ['filter', 'find', 'search']):
+                                    operation_type = 'filtering'
+                                elif any(word in user_msg_lower for word in ['chart', 'graph', 'plot']):
+                                    operation_type = 'chart_creation'
+                                
+                                # Generate explanation
+                                explanation = explanation_workflow.generate_explanation(
+                                    operation_type=operation_type,
+                                    before_df=before_workbook.get(st.session_state.current_sheet, pd.DataFrame()),
+                                    after_df=st.session_state.workbook.get(st.session_state.current_sheet, pd.DataFrame()),
+                                    operation_context={
+                                        'user_request': user_msg,
+                                        'operation_type': operation_type,
+                                        'timestamp': timestamp
+                                    }
+                                )
+                                
+                                # Combine AI response with explanation
+                                full_response = f"{reply}\n\n---\n\n{explanation}"
+                                
+                            except Exception as e:
+                                # If explanation fails, just use the AI response
+                                st.warning(f"⚠️ Explanation generation failed: {str(e)[:100]}...")
+                                full_response = reply
+                        else:
+                            # Explanations disabled, use only AI response
+                            full_response = reply
+                        
+                        # Add combined response to history
                         st.session_state.chat_histories[st.session_state.current_sheet].append({
                             "role": "assistant",
-                            "content": reply
+                            "content": full_response
                         })
                 except Exception as e2:
                     error_reply = f"❌ Error: {str(e2)[:100]}..."
