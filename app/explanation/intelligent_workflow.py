@@ -10,6 +10,9 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 import json
 
+# Import our ChangeDetector for proper content analysis
+from .change_detector import ChangeDetector
+
 # LangChain imports
 try:
     from langchain_core.prompts import PromptTemplate
@@ -48,6 +51,7 @@ class IntelligentExplanationWorkflow:
             llm: LangChain language model (if None, uses fallback)
         """
         self.llm = llm
+        self.change_detector = ChangeDetector()  # Add our proper change detector
         self.workflow = None
         self.tool_executor = None
         
@@ -279,7 +283,7 @@ class IntelligentExplanationWorkflow:
         return state
     
     def _fallback_analysis(self, state):
-        """Fallback analysis without LLM."""
+        """Fallback analysis without LLM - now uses proper ChangeDetector."""
         if state.before_df is None or state.after_df is None:
             return {
                 "structural_changes": "No data available for comparison",
@@ -288,18 +292,48 @@ class IntelligentExplanationWorkflow:
                 "observations": "Limited analysis possible"
             }
         
-        before_shape = state.before_df.shape if state.before_df is not None else (0, 0)
-        after_shape = state.after_df.shape if state.after_df is not None else (0, 0)
-        
-        rows_diff = after_shape[0] - before_shape[0]
-        cols_diff = after_shape[1] - before_shape[1]
-        
-        return {
-            "structural_changes": f"Rows: {before_shape[0]} → {after_shape[0]} ({rows_diff:+d}), Columns: {before_shape[1]} → {after_shape[1]} ({cols_diff:+d})",
-            "data_patterns": f"Data structure changed from {before_shape[0]}x{before_shape[1]} to {after_shape[0]}x{after_shape[1]}",
-            "user_accomplishment": f"Modified spreadsheet structure",
-            "observations": f"Total cells: {before_shape[0] * before_shape[1]} → {after_shape[0] * after_shape[1]}"
-        }
+        # Use our proper ChangeDetector for accurate analysis
+        try:
+            changes = self.change_detector.detect_changes(
+                state.before_df, 
+                state.after_df, 
+                state.operation_type or 'general',
+                state.operation_context or {}
+            )
+            
+            # Extract meaningful information from the change detection
+            structural_info = f"Rows: {changes['before_shape'][0]} → {changes['after_shape'][0]} ({changes['rows_added']:+d}), Columns: {changes['before_shape'][1]} → {changes['after_shape'][1]} ({changes['columns_added']:+d})"
+            
+            if changes['total_cells_changed'] > 0:
+                content_info = f"Content changes: {changes['total_cells_changed']} cells modified"
+                if changes['cells_modified']:
+                    sample_changes = changes['cells_modified'][:3]
+                    sample_info = "; ".join([f"{c['cell']}: {c['before']} → {c['after']}" for c in sample_changes])
+                    content_info += f" (Sample: {sample_info})"
+            else:
+                content_info = "No content changes detected"
+            
+            return {
+                "structural_changes": structural_info,
+                "data_patterns": content_info,
+                "user_accomplishment": changes.get('summary', 'Operation completed successfully'),
+                "observations": f"Total cells: {changes['before_shape'][0] * changes['before_shape'][1]} → {changes['after_shape'][0] * changes['after_shape'][1]}"
+            }
+            
+        except Exception as e:
+            # Fallback to simple analysis if ChangeDetector fails
+            before_shape = state.before_df.shape if state.before_df is not None else (0, 0)
+            after_shape = state.after_df.shape if state.after_df is not None else (0, 0)
+            
+            rows_diff = after_shape[0] - before_shape[0]
+            cols_diff = after_shape[1] - before_shape[1]
+            
+            return {
+                "structural_changes": f"Rows: {before_shape[0]} → {after_shape[0]} ({rows_diff:+d}), Columns: {before_shape[1]} → {after_shape[1]} ({cols_diff:+d})",
+                "data_patterns": f"Data structure changed from {before_shape[0]}x{before_shape[1]} to {after_shape[0]}x{after_shape[1]}",
+                "user_accomplishment": f"Modified spreadsheet structure",
+                "observations": f"Total cells: {before_shape[0] * before_shape[1]} → {after_shape[0] * after_shape[1]}"
+            }
     
     def _fallback_insights(self, state):
         """Fallback insights without LLM."""

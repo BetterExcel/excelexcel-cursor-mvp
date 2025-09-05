@@ -1820,19 +1820,38 @@ with st.sidebar:
                 st.session_state.chat_model = current_model
             
             # Capture workbook state BEFORE AI operation for explanation
-            before_workbook = {}
-            for sheet_name in st.session_state.workbook.keys():
-                before_workbook[sheet_name] = st.session_state.workbook[sheet_name].copy()
+            import copy
+            before_workbook = copy.deepcopy(st.session_state.workbook)
+            
+            # Create a working copy for the AI agent to modify
+            working_workbook = copy.deepcopy(st.session_state.workbook)
+            
+            # Store the current sheet name to avoid reference issues
+            current_sheet_name = st.session_state.current_sheet
             
             # Call the agent with context and selected model
             with st.spinner(f"🤖 AI is processing: {user_msg[:30]}..."):
                 reply = run_agent(
                     user_msg=user_msg.strip(),
-                    workbook=st.session_state.workbook,
-                    current_sheet=st.session_state.current_sheet,
+                    workbook=working_workbook,  # Use working copy
+                    current_sheet=current_sheet_name,
                     chat_history=chat_history,
                     model_name=current_model
                 )
+                
+                # Update the actual workbook with the AI's changes
+                st.session_state.workbook = working_workbook
+                
+                # Ensure we're comparing the right DataFrames
+                before_df = before_workbook.get(current_sheet_name, pd.DataFrame())
+                after_df = working_workbook.get(current_sheet_name, pd.DataFrame())
+                
+                # Additional debug info
+                print(f"DEBUG: Current sheet: {current_sheet_name}")
+                print(f"DEBUG: Before workbook keys: {list(before_workbook.keys())}")
+                print(f"DEBUG: After workbook keys: {list(working_workbook.keys())}")
+                print(f"DEBUG: Before sheet exists: {current_sheet_name in before_workbook}")
+                print(f"DEBUG: After sheet exists: {current_sheet_name in working_workbook}")
                 
                 # Log AI operation
                 timestamp = datetime.now().strftime("%H:%M:%S")
@@ -1867,10 +1886,18 @@ with st.sidebar:
                                 operation_type = 'chart_creation'
                             
                             # Generate intelligent explanation
+                            # Use the pre-calculated DataFrames from above
+                            # before_df and after_df are already calculated
+                            
+                            # Debug: Print the shapes to see what's changing
+                            print(f"DEBUG: Before shape: {before_df.shape}, After shape: {after_df.shape}")
+                            print(f"DEBUG: Before data sample: {before_df.head(2) if not before_df.empty else 'Empty'}")
+                            print(f"DEBUG: After data sample: {after_df.head(2) if not after_df.empty else 'Empty'}")
+                            
                             explanation = intelligent_workflow.generate_intelligent_explanation(
                                 operation_type=operation_type,
-                                before_df=before_workbook.get(st.session_state.current_sheet, pd.DataFrame()),
-                                after_df=st.session_state.workbook.get(st.session_state.current_sheet, pd.DataFrame()),
+                                before_df=before_df,
+                                after_df=after_df,
                                 operation_context={
                                     'user_request': user_msg,
                                     'operation_type': operation_type,
@@ -1900,10 +1927,18 @@ with st.sidebar:
                                 operation_type = 'chart_creation'
                             
                             # Generate basic explanation
+                            # Use the pre-calculated DataFrames from above
+                            # before_df and after_df are already calculated
+                            
+                            # Debug: Print the shapes to see what's changing
+                            print(f"DEBUG: Before shape: {before_df.shape}, After shape: {after_df.shape}")
+                            print(f"DEBUG: Before data sample: {before_df.head(2) if not before_df.empty else 'Empty'}")
+                            print(f"DEBUG: After data sample: {after_df.head(2) if not after_df.empty else 'Empty'}")
+                            
                             explanation = explanation_workflow.generate_explanation(
                                 operation_type=operation_type,
-                                before_df=before_workbook.get(st.session_state.current_sheet, pd.DataFrame()),
-                                after_df=st.session_state.workbook.get(st.session_state.current_sheet, pd.DataFrame()),
+                                before_df=before_df,
+                                after_df=after_df,
                                 operation_context={
                                     'user_request': user_msg,
                                     'operation_type': operation_type,
@@ -1937,13 +1972,19 @@ with st.sidebar:
                     st.warning(f"⚠️ Trying fallback model...")
                     fallback_model = "gpt-4-turbo-2024-04-09"
                     with st.spinner("🤖 AI is processing with fallback model..."):
+                        # Create a working copy for the fallback agent
+                        fallback_workbook = copy.deepcopy(st.session_state.workbook)
+                        
                         reply = run_agent(
                             user_msg=user_msg.strip(),
-                            workbook=st.session_state.workbook,
+                            workbook=fallback_workbook,  # Use working copy
                             current_sheet=st.session_state.current_sheet,
                             chat_history=chat_history,
                             model_name=fallback_model
                         )
+                        
+                        # Update the actual workbook with the fallback agent's changes
+                        st.session_state.workbook = fallback_workbook
                         st.session_state.chat_model = fallback_model
                         
                         # Generate explanation for fallback response too (if enabled)
@@ -1971,10 +2012,18 @@ with st.sidebar:
                                         operation_type = 'chart_creation'
                                     
                                     # Generate intelligent explanation
+                                    before_df = before_workbook.get(st.session_state.current_sheet, pd.DataFrame())
+                                    after_df = st.session_state.workbook.get(st.session_state.current_sheet, pd.DataFrame())
+                                    
+                                    # Debug: Print the shapes to see what's changing
+                                    print(f"DEBUG: Before shape: {before_df.shape}, After shape: {after_df.shape}")
+                                    print(f"DEBUG: Before data sample: {before_df.head(2) if not before_df.empty else 'Empty'}")
+                                    print(f"DEBUG: After data sample: {after_df.head(2) if not after_df.empty else 'Empty'}")
+                                    
                                     explanation = intelligent_workflow.generate_intelligent_explanation(
                                         operation_type=operation_type,
-                                        before_df=before_workbook.get(st.session_state.current_sheet, pd.DataFrame()),
-                                        after_df=before_workbook.get(st.session_state.current_sheet, pd.DataFrame()),
+                                        before_df=before_df,
+                                        after_df=after_df,
                                         operation_context={
                                             'user_request': user_msg,
                                             'operation_type': operation_type,
@@ -2004,10 +2053,16 @@ with st.sidebar:
                                         operation_type = 'chart_creation'
                                     
                                     # Generate basic explanation
+                                    before_df = before_workbook.get(st.session_state.current_sheet, pd.DataFrame())
+                                    after_df = st.session_state.workbook.get(st.session_state.current_sheet, pd.DataFrame())
+                                    
+                                    # Debug: Print the shapes to see what's changing
+                                    print(f"DEBUG: Before shape: {before_df.shape}, After shape: {after_df.shape}")
+                                    
                                     explanation = explanation_workflow.generate_explanation(
                                         operation_type=operation_type,
-                                        before_df=before_workbook.get(st.session_state.current_sheet, pd.DataFrame()),
-                                        after_df=before_workbook.get(st.session_state.current_sheet, pd.DataFrame()),
+                                        before_df=before_df,
+                                        after_df=after_df,
                                         operation_context={
                                             'user_request': user_msg,
                                             'operation_type': operation_type,
@@ -2044,8 +2099,8 @@ with st.sidebar:
                     "content": error_reply
                 })
         
-        # Rerun to show the updated chat
-        st.rerun()
+        # Don't rerun - let Streamlit handle updates naturally
+        # st.rerun()  # Commented out to prevent infinite loops
         
 
 

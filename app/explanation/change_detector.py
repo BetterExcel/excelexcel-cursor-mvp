@@ -127,18 +127,21 @@ class ChangeDetector:
                 before_val = before_df.iloc[row_idx][col]
                 after_val = after_df.iloc[row_idx][col]
                 
-                # Handle NaN values properly
-                if pd.isna(before_val) and pd.isna(after_val):
+                # Handle NaN/None values properly
+                before_is_empty = pd.isna(before_val) or before_val is None or str(before_val).strip() == ''
+                after_is_empty = pd.isna(after_val) or after_val is None or str(after_val).strip() == ''
+                
+                if before_is_empty and after_is_empty:
                     continue
-                elif pd.isna(before_val) or pd.isna(after_val):
+                elif before_is_empty or after_is_empty:
                     modified_cells.append({
                         'cell': f"{col}{row_idx + 1}",
-                        'before': str(before_val) if not pd.isna(before_val) else "empty",
-                        'after': str(after_val) if not pd.isna(after_val) else "empty",
+                        'before': "empty" if before_is_empty else str(before_val),
+                        'after': "empty" if after_is_empty else str(after_val),
                         'change_type': 'value_change'
                     })
                     total_changes += 1
-                elif str(before_val) != str(after_val):
+                elif str(before_val).strip() != str(after_val).strip():
                     modified_cells.append({
                         'cell': f"{col}{row_idx + 1}",
                         'before': str(before_val),
@@ -149,6 +152,12 @@ class ChangeDetector:
         
         changes['cells_modified'] = modified_cells
         changes['total_cells_changed'] = total_changes
+        
+        # Debug output
+        print(f"DEBUG: ChangeDetector - total_changes: {total_changes}")
+        print(f"DEBUG: ChangeDetector - modified_cells count: {len(modified_cells)}")
+        if modified_cells:
+            print(f"DEBUG: ChangeDetector - sample changes: {modified_cells[:3]}")
         
         # Add new data if rows were added
         if len(after_df) > len(before_df):
@@ -228,9 +237,17 @@ class ChangeDetector:
         key_info_parts = []
         suggestions = []
         
+        # Debug output for summary generation
+        print(f"DEBUG: Summary generation - operation_type: {operation_type}")
+        print(f"DEBUG: Summary generation - total_cells_changed: {changes.get('total_cells_changed', 'NOT_FOUND')}")
+        print(f"DEBUG: Summary generation - changes keys: {list(changes.keys())}")
+        
         # Generate summary based on operation type
         if operation_type == 'data_creation':
-            summary_parts.append(f"Created data with {changes['after_shape'][0]} rows and {changes['after_shape'][1]} columns")
+            if changes.get('total_cells_changed', 0) > 0:
+                summary_parts.append(f"Created data with {changes['total_cells_changed']} cells filled")
+            else:
+                summary_parts.append(f"Created data with {changes['after_shape'][0]} rows and {changes['after_shape'][1]} columns")
             
             if changes['rows_added'] > 0:
                 summary_parts.append(f"Added {changes['rows_added']} new rows")
@@ -259,6 +276,21 @@ class ChangeDetector:
         # Generate key information
         if changes['total_cells_changed'] > 0:
             key_info_parts.append(f"Total changes: {changes['total_cells_changed']} cells")
+            
+            # Show sample of what changed
+            if changes['cells_modified']:
+                sample_changes = changes['cells_modified'][:3]  # Show first 3 changes
+                change_descriptions = []
+                for change in sample_changes:
+                    if change['before'] == 'empty':
+                        change_descriptions.append(f"{change['cell']}: added {change['after']}")
+                    elif change['after'] == 'empty':
+                        change_descriptions.append(f"{change['cell']}: removed {change['before']}")
+                    else:
+                        change_descriptions.append(f"{change['cell']}: {change['before']} → {change['after']}")
+                
+                if change_descriptions:
+                    key_info_parts.append(f"Sample changes: {'; '.join(change_descriptions)}")
         
         if 'data_patterns' in changes and changes['data_patterns']:
             patterns = changes['data_patterns']
