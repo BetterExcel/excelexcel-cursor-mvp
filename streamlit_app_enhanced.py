@@ -1864,6 +1864,7 @@ with st.sidebar:
                         
                         if local_llm:
                             # Use intelligent workflow with LangChain + LangGraph
+                            print("🚀 Using IntelligentExplanationWorkflow with LangChain + LangGraph")
                             intelligent_workflow = IntelligentExplanationWorkflow(local_llm)
                             
                             # Determine operation type based on user message
@@ -1914,6 +1915,7 @@ with st.sidebar:
                             
                         else:
                             # Fallback to basic explanation workflow
+                            print("⚠️ Falling back to basic ExplanationWorkflow (no LLM)")
                             explanation_workflow = ExplanationWorkflow()
                             
                             # Determine operation type based on user message

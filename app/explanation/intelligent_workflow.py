@@ -23,7 +23,6 @@ try:
     
     # LangGraph imports
     from langgraph.graph import StateGraph, END
-    from langgraph.prebuilt import ToolExecutor
     from langgraph.checkpoint.memory import MemorySaver
     
     LANGCHAIN_AVAILABLE = True
@@ -53,7 +52,6 @@ class IntelligentExplanationWorkflow:
         self.llm = llm
         self.change_detector = ChangeDetector()  # Add our proper change detector
         self.workflow = None
-        self.tool_executor = None
         
         if LANGCHAIN_AVAILABLE and llm:
             self._build_workflow()
@@ -96,25 +94,25 @@ class IntelligentExplanationWorkflow:
         try:
             # Use LangChain to analyze changes
             analysis_prompt = PromptTemplate.from_template("""
-            Analyze the changes between two spreadsheet states and provide intelligent insights.
+            You are an expert spreadsheet analyst. Analyze the changes between two spreadsheet states and provide intelligent, actionable insights.
             
             Before DataFrame Shape: {before_shape}
             After DataFrame Shape: {after_shape}
             Operation Type: {operation_type}
             User Request: {user_request}
             
-            Please analyze:
-            1. What structural changes occurred (rows/columns added/removed)
-            2. What data patterns emerged
-            3. What the user actually accomplished
-            4. Any potential issues or interesting observations
+            As a spreadsheet expert, analyze:
+            1. **Structural Changes**: What changed in the table structure (rows/columns added/removed)
+            2. **Data Patterns**: What type of data was created (numeric, text, formulas, patterns)
+            3. **User Achievement**: What the user successfully accomplished
+            4. **Smart Insights**: Professional observations about data quality, potential issues, or opportunities
             
             Provide your analysis in JSON format:
             {{
-                "structural_changes": "description of structural changes",
-                "data_patterns": "description of data patterns",
-                "user_accomplishment": "what the user achieved",
-                "observations": "key observations and insights"
+                "structural_changes": "detailed description of structural changes",
+                "data_patterns": "analysis of data types and patterns created",
+                "user_accomplishment": "what the user successfully achieved",
+                "observations": "professional insights and recommendations"
             }}
             """)
             
@@ -221,25 +219,27 @@ class IntelligentExplanationWorkflow:
         try:
             if self.llm:
                 explanation_prompt = PromptTemplate.from_template("""
-                Create an intelligent, user-friendly explanation of what happened in the spreadsheet.
+                You are a professional spreadsheet consultant. Create an intelligent, comprehensive explanation of what happened in the spreadsheet.
                 
                 Change Analysis: {change_analysis}
                 Data Insights: {data_insights}
                 Operation Type: {operation_type}
                 User Request: {user_request}
                 
-                Write a clear, helpful explanation that:
-                1. Explains what the user accomplished
-                2. Provides context about the data
-                3. Suggests meaningful next steps
-                4. Uses professional but friendly language
+                Write a detailed, professional explanation that:
+                1. **Clearly explains what changed** - specific details about the modifications
+                2. **Highlights key accomplishments** - what the user successfully achieved
+                3. **Provides data insights** - analysis of the data types, patterns, and quality
+                4. **Offers actionable recommendations** - specific next steps based on the data
+                5. **Uses professional language** - clear, concise, and helpful
                 
-                Format the explanation with clear sections:
-                - Summary of Changes
-                - What This Means
-                - Suggested Next Steps
+                Structure your response with clear sections:
+                - **Summary of Changes**
+                - **What This Means**
+                - **Data Insights**
+                - **Recommended Next Steps**
                 
-                Make it intelligent and contextual, not just a template.
+                Be specific about numbers, locations, and data types. Make it intelligent and contextual, not just a template.
                 """)
                 
                 explanation_chain = explanation_prompt | self.llm | StrOutputParser()
@@ -382,11 +382,13 @@ class IntelligentExplanationWorkflow:
         """
         if not LANGCHAIN_AVAILABLE or not self.llm:
             # Use fallback mode
+            print(f"🚨 Intelligent workflow fallback: LANGCHAIN_AVAILABLE={LANGCHAIN_AVAILABLE}, llm={self.llm is not None}")
             return self._generate_fallback_explanation(
                 operation_type, before_df, after_df, operation_context
             )
         
         try:
+            print("🚀 Running LangGraph workflow with LLM...")
             # Initialize workflow state
             initial_state = {
                 "before_df": before_df,
@@ -402,6 +404,7 @@ class IntelligentExplanationWorkflow:
             # Run the workflow
             result = self.workflow.invoke(initial_state)
             
+            print("✅ LangGraph workflow completed successfully!")
             return result.final_output
             
         except Exception as e:
