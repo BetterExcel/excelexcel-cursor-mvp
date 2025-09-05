@@ -153,11 +153,15 @@ class ChangeDetector:
         changes['cells_modified'] = modified_cells
         changes['total_cells_changed'] = total_changes
         
-        # Debug output
-        print(f"DEBUG: ChangeDetector - total_changes: {total_changes}")
-        print(f"DEBUG: ChangeDetector - modified_cells count: {len(modified_cells)}")
-        if modified_cells:
-            print(f"DEBUG: ChangeDetector - sample changes: {modified_cells[:3]}")
+        # Debug output - show what actually changed
+        if total_changes > 0:
+            print(f"🔍 ChangeDetector: {total_changes} cells changed")
+            for i, change in enumerate(modified_cells[:5]):  # Show first 5 changes
+                print(f"   {change['cell']}: '{change['before']}' → '{change['after']}'")
+            if len(modified_cells) > 5:
+                print(f"   ... and {len(modified_cells) - 5} more changes")
+        else:
+            print("🔍 ChangeDetector: No content changes detected")
         
         # Add new data if rows were added
         if len(after_df) > len(before_df):
@@ -237,11 +241,6 @@ class ChangeDetector:
         key_info_parts = []
         suggestions = []
         
-        # Debug output for summary generation
-        print(f"DEBUG: Summary generation - operation_type: {operation_type}")
-        print(f"DEBUG: Summary generation - total_cells_changed: {changes.get('total_cells_changed', 'NOT_FOUND')}")
-        print(f"DEBUG: Summary generation - changes keys: {list(changes.keys())}")
-        
         # Generate summary based on operation type
         if operation_type == 'data_creation':
             if changes.get('total_cells_changed', 0) > 0:
@@ -291,6 +290,25 @@ class ChangeDetector:
                 
                 if change_descriptions:
                     key_info_parts.append(f"Sample changes: {'; '.join(change_descriptions)}")
+            
+            # Add data type analysis
+            if changes['cells_modified']:
+                data_types = {}
+                for change in changes['cells_modified']:
+                    if change['after'] != 'empty':
+                        try:
+                            float(change['after'])
+                            data_types['numeric'] = data_types.get('numeric', 0) + 1
+                        except:
+                            data_types['text'] = data_types.get('text', 0) + 1
+                
+                if data_types:
+                    type_info = []
+                    if 'numeric' in data_types:
+                        type_info.append(f"{data_types['numeric']} numeric values")
+                    if 'text' in data_types:
+                        type_info.append(f"{data_types['text']} text values")
+                    key_info_parts.append(f"Data types: {', '.join(type_info)}")
         
         if 'data_patterns' in changes and changes['data_patterns']:
             patterns = changes['data_patterns']
@@ -305,10 +323,23 @@ class ChangeDetector:
         # Generate suggestions based on operation type and data
         if operation_type == 'data_creation':
             suggestions.extend([
-                "Try adding formulas to calculate totals or averages",
-                "Create charts to visualize the data patterns",
-                "Use filters to explore specific data subsets"
+                "Add formulas to calculate totals, averages, or other statistics",
+                "Create charts to visualize the data patterns and trends", 
+                "Apply formatting to highlight important values or ranges",
+                "Use filters to explore specific data subsets or patterns"
             ])
+            
+            # Add specific suggestions based on data types
+            if changes['total_cells_changed'] > 0 and changes['cells_modified']:
+                has_numeric = any(change['after'] != 'empty' and str(change['after']).replace('.', '').replace('-', '').isdigit() 
+                                for change in changes['cells_modified'])
+                has_text = any(change['after'] != 'empty' and not str(change['after']).replace('.', '').replace('-', '').isdigit() 
+                             for change in changes['cells_modified'])
+                
+                if has_numeric:
+                    suggestions.append("Consider creating summary statistics (SUM, AVERAGE, MIN, MAX)")
+                if has_text:
+                    suggestions.append("Try text analysis functions (LEN, UPPER, LOWER, CONCATENATE)")
         
         elif operation_type == 'formula_application':
             suggestions.extend([
@@ -326,11 +357,28 @@ class ChangeDetector:
             if 'empty_patterns' in patterns and patterns['empty_patterns']['empty_rows'] > 0:
                 suggestions.append("Consider filling empty cells or removing empty rows/columns")
         
+        # Generate insights
+        insights = []
+        if changes['total_cells_changed'] > 0:
+            insights.append(f"Successfully populated {changes['total_cells_changed']} cells with new data")
+            
+            if changes['cells_modified']:
+                # Analyze the data pattern
+                numeric_count = sum(1 for change in changes['cells_modified'] 
+                                  if change['after'] != 'empty' and str(change['after']).replace('.', '').replace('-', '').isdigit())
+                text_count = changes['total_cells_changed'] - numeric_count
+                
+                if numeric_count > 0:
+                    insights.append(f"Generated {numeric_count} numeric values")
+                if text_count > 0:
+                    insights.append(f"Created {text_count} text entries")
+        
         return {
             'summary': '; '.join(summary_parts) if summary_parts else "Operation completed successfully",
             'location': '; '.join(location_parts) if location_parts else "Data updated in current sheet",
             'key_info': '; '.join(key_info_parts) if key_info_parts else "Data structure modified",
-            'suggestions': suggestions[:3] if suggestions else ["Explore the updated data to verify changes"]
+            'insights': '; '.join(insights) if insights else "Data structure updated successfully",
+            'suggestions': suggestions[:4] if suggestions else ["Explore the updated data to verify changes"]
         }
     
     def get_change_history(self) -> List[Dict[str, Any]]:

@@ -433,16 +433,31 @@ class IntelligentExplanationWorkflow:
             'change_analysis': analysis
         })())
         
-        output_parts = [
-            "**Analysis Summary**",
-            "",
-            explanation,
-            "",
-            f"*Generated at: {datetime.now().isoformat()}*",
-            f"*Operation: {operation_type}*"
-        ]
-        
-        return "\n".join(output_parts)
+        # Use our enhanced change detector for better explanations
+        try:
+            changes = self.change_detector.detect_changes(
+                before_df, after_df, operation_type, operation_context or {}
+            )
+            
+            # Use the template system for consistent formatting
+            from .templates import ExplanationTemplates
+            templates = ExplanationTemplates()
+            explanation = templates.generate_explanation(operation_type, changes)
+            
+            return explanation
+            
+        except Exception as e:
+            # Ultimate fallback
+            output_parts = [
+                "**Analysis Summary**",
+                "",
+                explanation,
+                "",
+                f"*Generated at: {datetime.now().isoformat()}*",
+                f"*Operation: {operation_type}*"
+            ]
+            
+            return "\n".join(output_parts)
 
 
 # Convenience function for quick intelligent explanations

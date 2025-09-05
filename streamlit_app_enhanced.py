@@ -1846,12 +1846,7 @@ with st.sidebar:
                 before_df = before_workbook.get(current_sheet_name, pd.DataFrame())
                 after_df = working_workbook.get(current_sheet_name, pd.DataFrame())
                 
-                # Additional debug info
-                print(f"DEBUG: Current sheet: {current_sheet_name}")
-                print(f"DEBUG: Before workbook keys: {list(before_workbook.keys())}")
-                print(f"DEBUG: After workbook keys: {list(working_workbook.keys())}")
-                print(f"DEBUG: Before sheet exists: {current_sheet_name in before_workbook}")
-                print(f"DEBUG: After sheet exists: {current_sheet_name in working_workbook}")
+                                            # Ensure we're comparing the right DataFrames
                 
                 # Log AI operation
                 timestamp = datetime.now().strftime("%H:%M:%S")
@@ -1885,14 +1880,23 @@ with st.sidebar:
                             elif any(word in user_msg_lower for word in ['chart', 'graph', 'plot', 'visualize']):
                                 operation_type = 'chart_creation'
                             
+                            # Debug: Show what's changing
+                            print(f"📊 Before: {before_df.shape}, After: {after_df.shape}")
+                            if not before_df.empty and not after_df.empty:
+                                print(f"📊 Before sample: {before_df.head(2).values.tolist()}")
+                                print(f"📊 After sample:  {after_df.head(2).values.tolist()}")
+                            
                             # Generate intelligent explanation
                             # Use the pre-calculated DataFrames from above
                             # before_df and after_df are already calculated
                             
-                            # Debug: Print the shapes to see what's changing
-                            print(f"DEBUG: Before shape: {before_df.shape}, After shape: {after_df.shape}")
-                            print(f"DEBUG: Before data sample: {before_df.head(2) if not before_df.empty else 'Empty'}")
-                            print(f"DEBUG: After data sample: {after_df.head(2) if not after_df.empty else 'Empty'}")
+                            # Debug: Show what's changing
+                            print(f"📊 Before: {before_df.shape}, After: {after_df.shape}")
+                            if not before_df.empty and not after_df.empty:
+                                print(f"📊 Before sample: {before_df.head(2).values.tolist()}")
+                                print(f"📊 After sample:  {after_df.head(2).values.tolist()}")
+                            
+                            # Generate intelligent explanation
                             
                             explanation = intelligent_workflow.generate_intelligent_explanation(
                                 operation_type=operation_type,
@@ -1926,14 +1930,23 @@ with st.sidebar:
                             elif any(word in user_msg_lower for word in ['chart', 'graph', 'plot', 'visualize']):
                                 operation_type = 'chart_creation'
                             
+                            # Debug: Show what's changing
+                            print(f"📊 Before: {before_df.shape}, After: {after_df.shape}")
+                            if not before_df.empty and not after_df.empty:
+                                print(f"📊 Before sample: {before_df.head(2).values.tolist()}")
+                                print(f"📊 After sample:  {after_df.head(2).values.tolist()}")
+                            
                             # Generate basic explanation
                             # Use the pre-calculated DataFrames from above
                             # before_df and after_df are already calculated
                             
-                            # Debug: Print the shapes to see what's changing
-                            print(f"DEBUG: Before shape: {before_df.shape}, After shape: {after_df.shape}")
-                            print(f"DEBUG: Before data sample: {before_df.head(2) if not before_df.empty else 'Empty'}")
-                            print(f"DEBUG: After data sample: {after_df.head(2) if not after_df.empty else 'Empty'}")
+                            # Debug: Show what's changing
+                            print(f"📊 Before: {before_df.shape}, After: {after_df.shape}")
+                            if not before_df.empty and not after_df.empty:
+                                print(f"📊 Before sample: {before_df.head(2).values.tolist()}")
+                                print(f"📊 After sample:  {after_df.head(2).values.tolist()}")
+                            
+                            # Generate intelligent explanation
                             
                             explanation = explanation_workflow.generate_explanation(
                                 operation_type=operation_type,
@@ -2011,15 +2024,13 @@ with st.sidebar:
                                     elif any(word in user_msg_lower for word in ['chart', 'graph', 'plot', 'visualize']):
                                         operation_type = 'chart_creation'
                                     
+                                    # Debug: Show what's changing
+                                    print(f"📊 Before: {before_df.shape}, After: {after_df.shape}")
+                                    if not before_df.empty and not after_df.empty:
+                                        print(f"📊 Before sample: {before_df.head(2).values.tolist()}")
+                                        print(f"📊 After sample:  {after_df.head(2).values.tolist()}")
+                                    
                                     # Generate intelligent explanation
-                                    before_df = before_workbook.get(st.session_state.current_sheet, pd.DataFrame())
-                                    after_df = st.session_state.workbook.get(st.session_state.current_sheet, pd.DataFrame())
-                                    
-                                    # Debug: Print the shapes to see what's changing
-                                    print(f"DEBUG: Before shape: {before_df.shape}, After shape: {after_df.shape}")
-                                    print(f"DEBUG: Before data sample: {before_df.head(2) if not before_df.empty else 'Empty'}")
-                                    print(f"DEBUG: After data sample: {after_df.head(2) if not after_df.empty else 'Empty'}")
-                                    
                                     explanation = intelligent_workflow.generate_intelligent_explanation(
                                         operation_type=operation_type,
                                         before_df=before_df,
@@ -2052,12 +2063,13 @@ with st.sidebar:
                                     elif any(word in user_msg_lower for word in ['chart', 'graph', 'plot', 'visualize']):
                                         operation_type = 'chart_creation'
                                     
-                                    # Generate basic explanation
-                                    before_df = before_workbook.get(st.session_state.current_sheet, pd.DataFrame())
-                                    after_df = st.session_state.workbook.get(st.session_state.current_sheet, pd.DataFrame())
+                                    # Debug: Show what's changing
+                                    print(f"📊 Before: {before_df.shape}, After: {after_df.shape}")
+                                    if not before_df.empty and not after_df.empty:
+                                        print(f"📊 Before sample: {before_df.head(2).values.tolist()}")
+                                        print(f"📊 After sample:  {after_df.head(2).values.tolist()}")
                                     
-                                    # Debug: Print the shapes to see what's changing
-                                    print(f"DEBUG: Before shape: {before_df.shape}, After shape: {after_df.shape}")
+                                    # Generate basic explanation
                                     
                                     explanation = explanation_workflow.generate_explanation(
                                         operation_type=operation_type,
@@ -2099,8 +2111,8 @@ with st.sidebar:
                     "content": error_reply
                 })
         
-        # Don't rerun - let Streamlit handle updates naturally
-        # st.rerun()  # Commented out to prevent infinite loops
+        # Rerun to show the updated chat and spreadsheet
+        st.rerun()
         
 
 

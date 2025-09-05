@@ -25,12 +25,12 @@ class ExplanationTemplates:
         """Load the default explanation templates."""
         return {
             'data_creation': {
-                'title': 'Data Creation Summary',
+                'title': 'Data Creation Analysis',
                 'what_changed': '**What Changed:** {summary}',
                 'location': '**Location:** {location}',
                 'key_data': '**Key Data:** {key_info}',
-                'insights': '**Insights:** {insights}',
-                'next_steps': '**Next Steps:** {suggestions}'
+                'insights': '**Data Insights:** {insights}',
+                'next_steps': '**Recommended Actions:** {suggestions}'
             },
             'formula_application': {
                 'title': 'Formula Application Summary',
@@ -151,7 +151,7 @@ class ExplanationTemplates:
             'summary': changes.get('summary', 'Operation completed'),
             'location': changes.get('location', 'Current sheet'),
             'key_info': changes.get('key_info', 'Data updated'),
-            'insights': custom_insights or self._generate_insights(changes),
+            'insights': custom_insights or changes.get('insights', 'Data structure updated successfully'),
             'suggestions': self._format_suggestions(changes.get('suggestions', []))
         }
         

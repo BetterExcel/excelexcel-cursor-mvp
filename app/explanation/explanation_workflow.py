@@ -67,6 +67,8 @@ class ExplanationWorkflow:
             return final_output
             
         except Exception as e:
+            # Debug: Show what error occurred
+            print(f"🚨 ExplanationWorkflow error: {str(e)}")
             # Fallback to simple explanation if workflow fails
             return self._generate_fallback_explanation(
                 operation_type, before_df, after_df, operation_context
