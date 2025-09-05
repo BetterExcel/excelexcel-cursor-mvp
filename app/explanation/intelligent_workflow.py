@@ -103,7 +103,8 @@ class IntelligentExplanationWorkflow:
             3. **User Achievement**: What the user successfully accomplished
             4. **Smart Insights**: Professional observations about data quality, potential issues, or opportunities
             
-            Provide your analysis in JSON format:
+            IMPORTANT: Respond with ONLY valid JSON. Do not include any text before or after the JSON. Start directly with {{ and end with }}.
+            
             {{
                 "structural_changes": "detailed description of structural changes",
                 "data_patterns": "analysis of data types and patterns created",
@@ -130,15 +131,29 @@ class IntelligentExplanationWorkflow:
                 analysis_result = analysis_chain.invoke(analysis_input)
                 print(f"🔍 LLM analysis result: {analysis_result[:200]}...")
                 
-                # Parse the JSON response - handle markdown formatting
+                # Parse the JSON response - handle various formatting
                 try:
-                    # Clean the response - remove markdown formatting
+                    # Clean the response - remove various prefixes and markdown
                     cleaned_result = analysis_result.strip()
-                    if cleaned_result.startswith("```json"):
-                        cleaned_result = cleaned_result[7:]  # Remove ```json
+                    
+                    # Remove common prefixes
+                    prefixes_to_remove = [
+                        "Here is the analysis in JSON format:",
+                        "```json",
+                        "```",
+                        "Analysis:",
+                        "JSON:"
+                    ]
+                    
+                    for prefix in prefixes_to_remove:
+                        if cleaned_result.startswith(prefix):
+                            cleaned_result = cleaned_result[len(prefix):].strip()
+                    
+                    # Remove trailing ```
                     if cleaned_result.endswith("```"):
-                        cleaned_result = cleaned_result[:-3]  # Remove ```
-                    cleaned_result = cleaned_result.strip()
+                        cleaned_result = cleaned_result[:-3].strip()
+                    
+                    print(f"🔍 Cleaned JSON: {cleaned_result[:200]}...")
                     
                     analysis_data = json.loads(cleaned_result)
                     state["change_analysis"] = analysis_data
