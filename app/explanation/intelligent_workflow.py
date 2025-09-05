@@ -90,26 +90,26 @@ class IntelligentExplanationWorkflow:
             
             # Use LangChain to analyze changes
             analysis_prompt = PromptTemplate.from_template("""
-            You are an expert spreadsheet analyst. Analyze the changes between two spreadsheet states and provide intelligent, actionable insights.
+            You are an AI spreadsheet assistant. Analyze the changes you made to the spreadsheet and provide intelligent insights.
             
             Before DataFrame Shape: {before_shape}
             After DataFrame Shape: {after_shape}
             Operation Type: {operation_type}
             User Request: {user_request}
             
-            As a spreadsheet expert, analyze:
-            1. **Structural Changes**: What changed in the table structure (rows/columns added/removed)
-            2. **Data Patterns**: What type of data was created (numeric, text, formulas, patterns)
-            3. **User Achievement**: What the user successfully accomplished
-            4. **Smart Insights**: Professional observations about data quality, potential issues, or opportunities
+            As the AI assistant who made these changes, analyze:
+            1. **Structural Changes**: What you changed in the table structure (rows/columns added/removed)
+            2. **Data Patterns**: What type of data you created (numeric, text, formulas, patterns)
+            3. **Accomplishment**: What you successfully accomplished
+            4. **Smart Insights**: Professional observations about the data quality, potential issues, or opportunities
             
             IMPORTANT: Respond with ONLY valid JSON. Do not include any text before or after the JSON. Start directly with {{ and end with }}.
             
             {{
-                "structural_changes": "detailed description of structural changes",
-                "data_patterns": "analysis of data types and patterns created",
-                "user_accomplishment": "what the user successfully achieved",
-                "observations": "professional insights and recommendations"
+                "structural_changes": "detailed description of structural changes you made",
+                "data_patterns": "analysis of data types and patterns you created",
+                "accomplishment": "what you successfully accomplished",
+                "observations": "professional insights and recommendations about the data"
             }}
             """)
             
@@ -192,24 +192,26 @@ class IntelligentExplanationWorkflow:
             print(f"💡 Change analysis available: {'change_analysis' in state}")
             if self.llm:
                 insights_prompt = PromptTemplate.from_template("""
-                Based on the change analysis, generate intelligent insights about the spreadsheet data.
+                As an AI spreadsheet assistant, analyze the actual data patterns and extremes you created.
                 
                 Change Analysis: {change_analysis}
                 Operation Type: {operation_type}
                 User Request: {user_request}
                 
-                Generate insights about:
-                1. What the data represents
-                2. Potential use cases
-                3. Data quality observations
-                4. Next logical steps
+                Focus on meaningful data insights - not obvious statements. Analyze:
+                1. **Data Extremes**: What are the highest/lowest values, ranges, or notable patterns?
+                2. **Interesting Patterns**: Any trends, cycles, or unusual data points?
+                3. **Practical Observations**: What stands out about this specific dataset?
+                4. **Actionable Insights**: What can be done with these specific values?
+                
+                Avoid generic statements like "data is numeric" or "high quality". Be specific about the actual data.
                 
                 Provide insights in JSON format:
                 {{
-                    "data_meaning": "what the data represents",
-                    "use_cases": "potential applications",
-                    "quality_notes": "data quality observations",
-                    "next_steps": "logical next actions"
+                    "data_extremes": "specific high/low values, ranges, or notable data points",
+                    "patterns": "interesting trends, cycles, or patterns in the data",
+                    "practical_insights": "what stands out about this specific dataset",
+                    "next_steps": "1-2 specific actions based on the actual data values"
                 }}
                 """)
                 
@@ -252,27 +254,27 @@ class IntelligentExplanationWorkflow:
             print("📝 Creating explanation with LLM...")
             if self.llm:
                 explanation_prompt = PromptTemplate.from_template("""
-                You are a professional spreadsheet consultant. Create an intelligent, comprehensive explanation of what happened in the spreadsheet.
+                You are an AI spreadsheet assistant speaking directly to the person who requested the changes. Create an intelligent, comprehensive explanation of what you accomplished.
                 
                 Change Analysis: {change_analysis}
                 Data Insights: {data_insights}
                 Operation Type: {operation_type}
                 User Request: {user_request}
                 
-                Write a detailed, professional explanation that:
-                1. **Clearly explains what changed** - specific details about the modifications
-                2. **Highlights key accomplishments** - what the user successfully achieved
-                3. **Provides data insights** - analysis of the data types, patterns, and quality
-                4. **Offers actionable recommendations** - specific next steps based on the data
-                5. **Uses professional language** - clear, concise, and helpful
+                Write a direct, conversational explanation that:
+                1. **Clearly explains what you changed** - specific details about the modifications you made
+                2. **Highlights what you accomplished** - what you successfully created for them
+                3. **Provides data insights** - analysis of actual data extremes, ranges, and interesting patterns
+                4. **Offers confident, concise recommendations** - short, actionable next steps
+                5. **Speaks directly to the person** - use "you" and "I" conversationally, not "the user"
                 
                 Structure your response with clear sections:
                 - **Summary of Changes**
                 - **What This Means**
-                - **Data Insights**
-                - **Recommended Next Steps**
+                - **Data Insights** (focus on actual data extremes, ranges, and interesting patterns - not generic statements)
+                - **Next Steps** (keep this section short and confident - suggest 1-2 specific actions, end with "What would you like to change next?")
                 
-                Be specific about numbers, locations, and data types. Make it intelligent and contextual, not just a template.
+                Be specific about numbers, locations, and data types. Speak directly to the person as if you're having a conversation.
                 """)
                 
                 explanation_chain = explanation_prompt | self.llm | StrOutputParser()
