@@ -449,17 +449,7 @@ What would you like to change next?
 **Intelligent Analysis Summary**
 
 {explanation}
-
-Generated at: {pd.Timestamp.now().isoformat()}
-Operation: {operation_type}
-Validation: {'✅ Valid' if validation_results.get('is_valid', True) else '❌ Issues detected - Corrected'}
 """
-            
-            if validation_results.get('warnings'):
-                final_output += f"\nWarnings: {'; '.join(validation_results['warnings'])}"
-            
-            if validation_results.get('errors'):
-                final_output += f"\nErrors Corrected: {'; '.join(validation_results['errors'])}"
             
             print("✅ Chunked workflow completed successfully!")
             return final_output

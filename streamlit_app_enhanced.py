@@ -27,7 +27,7 @@ from app.ui.formula import evaluate_formula
 from app.agent.agent import run_agent, probe_models
 # from app.explanation import ExplanationWorkflow  # FALLBACK REMOVED - CLEAN PIPELINE ONLY
 from app.explanation.intelligent_workflow import IntelligentExplanationWorkflow
-from app.explanation.chunked_workflow import create_chunked_workflow
+from app.explanation.langchain_workflow import create_langchain_workflow
 from app.explanation.local_llm import get_local_llm, check_local_llm_availability
 import app.charts as charts
 
@@ -1887,11 +1887,11 @@ with st.sidebar:
                         print(f"🔧 CLEAN PIPELINE: Local LLM status: {local_llm is not None}")
                         
                         if local_llm:
-                            # Use chunked workflow for scalable data processing
-                            print("🚀 CHUNKED: Using ChunkedExplanationWorkflow for scalable processing")
-                            print("🔧 CHUNKED: Creating chunked workflow instance...")
-                            chunked_workflow = create_chunked_workflow()
-                            print("🔧 CHUNKED: Chunked workflow created successfully")
+                            # Use proper LangChain workflow for intelligent processing
+                            print("🚀 LANGCHAIN: Using LangChainExplanationWorkflow for intelligent processing")
+                            print("🔧 LANGCHAIN: Creating LangChain workflow instance...")
+                            langchain_workflow = create_langchain_workflow()
+                            print("🔧 LANGCHAIN: LangChain workflow created successfully")
                             
                             # Determine operation type based on user message
                             operation_type = 'general'
@@ -1913,9 +1913,9 @@ with st.sidebar:
                                 print(f"🔧 CLEAN PIPELINE: Before sample: {before_df.head(2).values.tolist()}")
                                 print(f"🔧 CLEAN PIPELINE: After sample:  {after_df.head(2).values.tolist()}")
                             
-                            # Generate intelligent explanation using chunked processing
-                            print("🔧 CHUNKED: Calling generate_explanation...")
-                            explanation = chunked_workflow.generate_explanation(
+                            # Generate intelligent explanation using proper LangChain workflow
+                            print("🔧 LANGCHAIN: Calling generate_explanation...")
+                            explanation = langchain_workflow.generate_explanation(
                                 before_df=before_df,
                                 after_df=after_df,
                                 operation_type=operation_type,
