@@ -116,7 +116,7 @@ class ChangeDetectionTool(BaseTool):
                 return "No data available for change detection"
             
             change_detector = ChangeDetector()
-            changes = change_detector.detect_changes(before_df, after_df)
+            changes = change_detector.detect_changes(before_df, after_df, operation_type)
             
             # Format changes for LLM consumption
             change_summary = {
