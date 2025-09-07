@@ -27,6 +27,7 @@ from app.ui.formula import evaluate_formula
 from app.agent.agent import run_agent, probe_models
 # from app.explanation import ExplanationWorkflow  # FALLBACK REMOVED - CLEAN PIPELINE ONLY
 from app.explanation.intelligent_workflow import IntelligentExplanationWorkflow
+from app.explanation.chunked_workflow import create_chunked_workflow
 from app.explanation.local_llm import get_local_llm, check_local_llm_availability
 import app.charts as charts
 
@@ -1886,11 +1887,11 @@ with st.sidebar:
                         print(f"🔧 CLEAN PIPELINE: Local LLM status: {local_llm is not None}")
                         
                         if local_llm:
-                            # Use intelligent workflow with LangChain + LangGraph
-                            print("🚀 CLEAN PIPELINE: Using IntelligentExplanationWorkflow with LangChain + LangGraph")
-                            print("🔧 CLEAN PIPELINE: Creating intelligent workflow instance...")
-                            intelligent_workflow = IntelligentExplanationWorkflow(local_llm)
-                            print("🔧 CLEAN PIPELINE: Intelligent workflow created successfully")
+                            # Use chunked workflow for scalable data processing
+                            print("🚀 CHUNKED: Using ChunkedExplanationWorkflow for scalable processing")
+                            print("🔧 CHUNKED: Creating chunked workflow instance...")
+                            chunked_workflow = create_chunked_workflow()
+                            print("🔧 CHUNKED: Chunked workflow created successfully")
                             
                             # Determine operation type based on user message
                             operation_type = 'general'
@@ -1912,17 +1913,13 @@ with st.sidebar:
                                 print(f"🔧 CLEAN PIPELINE: Before sample: {before_df.head(2).values.tolist()}")
                                 print(f"🔧 CLEAN PIPELINE: After sample:  {after_df.head(2).values.tolist()}")
                             
-                            # Generate intelligent explanation
-                            print("🔧 CLEAN PIPELINE: Calling generate_intelligent_explanation...")
-                            explanation = intelligent_workflow.generate_intelligent_explanation(
-                                operation_type=operation_type,
+                            # Generate intelligent explanation using chunked processing
+                            print("🔧 CHUNKED: Calling generate_explanation...")
+                            explanation = chunked_workflow.generate_explanation(
                                 before_df=before_df,
                                 after_df=after_df,
-                                operation_context={
-                                    'user_request': user_msg,
-                                    'operation_type': operation_type,
-                                    'timestamp': timestamp
-                                }
+                                operation_type=operation_type,
+                                operation_context=user_msg
                             )
                             
                             # Combine AI response with intelligent explanation
