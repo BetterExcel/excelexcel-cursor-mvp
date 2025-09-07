@@ -208,7 +208,7 @@ class LocalLLMProvider:
             return
         
         # No LLM available
-        logger.warning("❌ No local LLM available. Using fallback mode.")
+        logger.warning("❌ No local LLM available. Clean pipeline requires local LLM.")
         self.llm = None
         self.provider_type = "none"
     

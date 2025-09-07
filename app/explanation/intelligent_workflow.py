@@ -28,7 +28,7 @@ try:
     LANGCHAIN_AVAILABLE = True
 except ImportError:
     LANGCHAIN_AVAILABLE = False
-    print("Warning: LangChain not available. Using fallback mode.")
+    print("Warning: LangChain not available. Clean pipeline requires LangChain.")
 
 
 class IntelligentExplanationWorkflow:
@@ -47,7 +47,7 @@ class IntelligentExplanationWorkflow:
         Initialize the intelligent workflow.
         
         Args:
-            llm: LangChain language model (if None, uses fallback)
+            llm: LangChain language model (required for clean pipeline)
         """
         self.llm = llm
         self.change_detector = ChangeDetector()  # Add our proper change detector
@@ -58,7 +58,7 @@ class IntelligentExplanationWorkflow:
     
     def _build_workflow(self):
         """Build the LangGraph workflow."""
-        print("🔧 Building LangGraph workflow...")
+        print("🔧 CLEAN PIPELINE: Building LangGraph workflow...")
         # Create the state graph with dictionary-based state
         workflow = StateGraph(dict)
         
@@ -77,16 +77,16 @@ class IntelligentExplanationWorkflow:
         
         # Compile the workflow
         self.workflow = workflow.compile()
-        print("✅ LangGraph workflow built and compiled successfully!")
+        print("✅ CLEAN PIPELINE: LangGraph workflow built and compiled successfully!")
     
     def _analyze_changes_node(self, state):
         """Intelligently analyze what changed in the data."""
         try:
-            print("🔍 Analyzing changes with LLM...")
-            print(f"🔍 State received: {list(state.keys())}")
-            print(f"🔍 Before shape: {state.get('before_df', 'None')}")
-            print(f"🔍 After shape: {state.get('after_df', 'None')}")
-            print(f"🔍 Operation type: {state.get('operation_type', 'None')}")
+            print("🔍 CLEAN PIPELINE: Analyzing changes with LLM...")
+            print(f"🔍 CLEAN PIPELINE: State received: {list(state.keys())}")
+            print(f"🔍 CLEAN PIPELINE: Before shape: {state.get('before_df', 'None')}")
+            print(f"🔍 CLEAN PIPELINE: After shape: {state.get('after_df', 'None')}")
+            print(f"🔍 CLEAN PIPELINE: Operation type: {state.get('operation_type', 'None')}")
             
             # Use LangChain to analyze changes
             analysis_prompt = PromptTemplate.from_template("""
@@ -169,9 +169,8 @@ class IntelligentExplanationWorkflow:
                         "observations": analysis_result[:200] + "..." if len(analysis_result) > 200 else analysis_result
                     }
             else:
-                print("🔍 No LLM available, using fallback analysis")
-                # Fallback analysis without LLM
-                state["change_analysis"] = self._fallback_analysis(state)
+                print("🔍 No LLM available - clean pipeline requires LLM")
+                state["change_analysis"] = {"error": "LLM required for clean pipeline"}
                 
         except Exception as e:
             print(f"🔍 Analysis node error: {str(e)}")
@@ -236,7 +235,8 @@ class IntelligentExplanationWorkflow:
                         "next_steps": "Consider adding formulas or charts"
                     }
             else:
-                state["data_insights"] = self._fallback_insights(state)
+                print("💡 No LLM available - clean pipeline requires LLM")
+                state["data_insights"] = {"error": "LLM required for clean pipeline"}
                 
         except Exception as e:
             state["data_insights"] = {
@@ -290,7 +290,9 @@ class IntelligentExplanationWorkflow:
                 state["explanation"] = explanation_result
                 
             else:
-                state["explanation"] = self._fallback_explanation(state)
+                # FALLBACK COMMENTED OUT - CLEAN PIPELINE ONLY
+                # state["explanation"] = self._fallback_explanation(state)
+                state["explanation"] = "LLM analysis failed - no fallback available"
                 
         except Exception as e:
             state["explanation"] = f"Explanation generation failed: {str(e)}"
@@ -318,7 +320,8 @@ class IntelligentExplanationWorkflow:
         
         return state
     
-    def _fallback_analysis(self, state):
+    # FALLBACK METHODS COMMENTED OUT - CLEAN PIPELINE ONLY
+    # def _fallback_analysis(self, state):
         """Fallback analysis without LLM - now uses proper ChangeDetector."""
         if state.before_df is None or state.after_df is None:
             return {
@@ -371,7 +374,7 @@ class IntelligentExplanationWorkflow:
                 "observations": f"Total cells: {before_shape[0] * before_shape[1]} → {after_shape[0] * after_shape[1]}"
             }
     
-    def _fallback_insights(self, state):
+    # def _fallback_insights(self, state):
         """Fallback insights without LLM."""
         return {
             "data_meaning": "Spreadsheet data structure updated",
@@ -380,7 +383,7 @@ class IntelligentExplanationWorkflow:
             "next_steps": "Consider adding content and formulas"
         }
     
-    def _fallback_explanation(self, state):
+    # def _fallback_explanation(self, state):
         """Fallback explanation without LLM."""
         analysis = state.change_analysis or {}
         
@@ -417,11 +420,9 @@ class IntelligentExplanationWorkflow:
             Intelligent explanation string
         """
         if not LANGCHAIN_AVAILABLE or not self.llm:
-            # Use fallback mode
-            print(f"🚨 Intelligent workflow fallback: LANGCHAIN_AVAILABLE={LANGCHAIN_AVAILABLE}, llm={self.llm is not None}")
-            return self._generate_fallback_explanation(
-                operation_type, before_df, after_df, operation_context
-            )
+            # Clean pipeline requires LangChain and LLM
+            print(f"🚨 Clean pipeline requirements not met: LANGCHAIN_AVAILABLE={LANGCHAIN_AVAILABLE}, llm={self.llm is not None}")
+            return f"Clean pipeline requires LangChain and local LLM. Current status: LangChain={LANGCHAIN_AVAILABLE}, LLM={self.llm is not None}"
         
         try:
             print("🚀 Running LangGraph workflow with LLM...")
@@ -453,61 +454,60 @@ class IntelligentExplanationWorkflow:
             return result.get("final_output", "No final output generated")
             
         except Exception as e:
-            # Fallback if workflow fails
+            # FALLBACK COMMENTED OUT - CLEAN PIPELINE ONLY
             print(f"🚨 LangGraph workflow failed: {str(e)}")
-            print(f"🚨 Falling back to template-based explanation")
-            return self._generate_fallback_explanation(
-                operation_type, before_df, after_df, operation_context
-            )
+            print(f"🚨 No fallback available - returning error message")
+            return f"Intelligent explanation failed: {str(e)}"
     
-    def _generate_fallback_explanation(
-        self,
-        operation_type: str,
-        before_df: pd.DataFrame,
-        after_df: pd.DataFrame,
-        operation_context: Optional[Dict[str, Any]] = None
-    ) -> str:
-        """Generate fallback explanation without LangChain."""
-        analysis = self._fallback_analysis(type('State', (), {
-            'before_df': before_df,
-            'after_df': after_df,
-            'operation_type': operation_type,
-            'operation_context': operation_context or {}
-        })())
-        
-        insights = self._fallback_insights(type('State', (), {
-            'change_analysis': analysis
-        })())
-        
-        explanation = self._fallback_explanation(type('State', (), {
-            'change_analysis': analysis
-        })())
-        
-        # Use our enhanced change detector for better explanations
-        try:
-            changes = self.change_detector.detect_changes(
-                before_df, after_df, operation_type, operation_context or {}
-            )
-            
-            # Use the template system for consistent formatting
-            from .templates import ExplanationTemplates
-            templates = ExplanationTemplates()
-            explanation = templates.generate_explanation(operation_type, changes)
-            
-            return explanation
-            
-        except Exception as e:
-            # Ultimate fallback
-            output_parts = [
-                "**Analysis Summary**",
-                "",
-                explanation,
-                "",
-                f"*Generated at: {datetime.now().isoformat()}*",
-                f"*Operation: {operation_type}*"
-            ]
-            
-            return "\n".join(output_parts)
+    # FALLBACK METHOD COMMENTED OUT - CLEAN PIPELINE ONLY
+    # def _generate_fallback_explanation(
+    #     self,
+    #     operation_type: str,
+    #     before_df: pd.DataFrame,
+    #     after_df: pd.DataFrame,
+    #     operation_context: Optional[Dict[str, Any]] = None
+    # ) -> str:
+    #     """Generate fallback explanation without LangChain."""
+    #     analysis = self._fallback_analysis(type('State', (), {
+    #         'before_df': before_df,
+    #         'after_df': after_df,
+    #         'operation_type': operation_type,
+    #         'operation_context': operation_context or {}
+    #     })())
+    #     
+    #     insights = self._fallback_insights(type('State', (), {
+    #         'change_analysis': analysis
+    #     })())
+    #     
+    #     explanation = self._fallback_explanation(type('State', (), {
+    #         'change_analysis': analysis
+    #     })())
+    #     
+    #     # Use our enhanced change detector for better explanations
+    #     try:
+    #         changes = self.change_detector.detect_changes(
+    #             before_df, after_df, operation_type, operation_context or {}
+    #         )
+    #         
+    #         # Use the template system for consistent formatting
+    #         from .templates import ExplanationTemplates
+    #         templates = ExplanationTemplates()
+    #         explanation = templates.generate_explanation(operation_type, changes)
+    #         
+    #         return explanation
+    #         
+    #     except Exception as e:
+    #         # Ultimate fallback
+    #         output_parts = [
+    #             "**Analysis Summary**",
+    #             "",
+    #             explanation,
+    #             "",
+    #             f"*Generated at: {datetime.now().isoformat()}*",
+    #             f"*Operation: {operation_type}*"
+    #         ]
+    #         
+    #         return "\n".join(output_parts)
 
 
 # Convenience function for quick intelligent explanations

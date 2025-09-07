@@ -25,7 +25,7 @@ from app.services.workbook import (
 )
 from app.ui.formula import evaluate_formula
 from app.agent.agent import run_agent, probe_models
-from app.explanation import ExplanationWorkflow
+# from app.explanation import ExplanationWorkflow  # FALLBACK REMOVED - CLEAN PIPELINE ONLY
 from app.explanation.intelligent_workflow import IntelligentExplanationWorkflow
 from app.explanation.local_llm import get_local_llm, check_local_llm_availability
 import app.charts as charts
@@ -1858,14 +1858,19 @@ with st.sidebar:
                 
                 # Generate intelligent explanation using LangChain + LangGraph (if enabled)
                 if st.session_state.enable_explanations:
+                    print("🔧 CLEAN PIPELINE: Starting explanation generation...")
                     try:
-                        # Try to get a local LLM for intelligent explanations
+                        # Get local LLM for intelligent explanations
+                        print("🔧 CLEAN PIPELINE: Checking for local LLM...")
                         local_llm = get_local_llm()
+                        print(f"🔧 CLEAN PIPELINE: Local LLM status: {local_llm is not None}")
                         
                         if local_llm:
                             # Use intelligent workflow with LangChain + LangGraph
-                            print("🚀 Using IntelligentExplanationWorkflow with LangChain + LangGraph")
+                            print("🚀 CLEAN PIPELINE: Using IntelligentExplanationWorkflow with LangChain + LangGraph")
+                            print("🔧 CLEAN PIPELINE: Creating intelligent workflow instance...")
                             intelligent_workflow = IntelligentExplanationWorkflow(local_llm)
+                            print("🔧 CLEAN PIPELINE: Intelligent workflow created successfully")
                             
                             # Determine operation type based on user message
                             operation_type = 'general'
@@ -1882,23 +1887,13 @@ with st.sidebar:
                                 operation_type = 'chart_creation'
                             
                             # Debug: Show what's changing
-                            print(f"📊 Before: {before_df.shape}, After: {after_df.shape}")
+                            print(f"🔧 CLEAN PIPELINE: Data shapes - Before: {before_df.shape}, After: {after_df.shape}")
                             if not before_df.empty and not after_df.empty:
-                                print(f"📊 Before sample: {before_df.head(2).values.tolist()}")
-                                print(f"📊 After sample:  {after_df.head(2).values.tolist()}")
+                                print(f"🔧 CLEAN PIPELINE: Before sample: {before_df.head(2).values.tolist()}")
+                                print(f"🔧 CLEAN PIPELINE: After sample:  {after_df.head(2).values.tolist()}")
                             
                             # Generate intelligent explanation
-                            # Use the pre-calculated DataFrames from above
-                            # before_df and after_df are already calculated
-                            
-                            # Debug: Show what's changing
-                            print(f"📊 Before: {before_df.shape}, After: {after_df.shape}")
-                            if not before_df.empty and not after_df.empty:
-                                print(f"📊 Before sample: {before_df.head(2).values.tolist()}")
-                                print(f"📊 After sample:  {after_df.head(2).values.tolist()}")
-                            
-                            # Generate intelligent explanation
-                            
+                            print("🔧 CLEAN PIPELINE: Calling generate_intelligent_explanation...")
                             explanation = intelligent_workflow.generate_intelligent_explanation(
                                 operation_type=operation_type,
                                 before_df=before_df,
@@ -1911,61 +1906,18 @@ with st.sidebar:
                             )
                             
                             # Combine AI response with intelligent explanation
+                            print("🔧 CLEAN PIPELINE: Combining AI response with intelligent explanation...")
                             full_response = f"{reply}\n\n---\n\n{explanation}"
+                            print("🔧 CLEAN PIPELINE: Explanation generation completed successfully")
                             
                         else:
-                            # Fallback to basic explanation workflow
-                            print("⚠️ Falling back to basic ExplanationWorkflow (no LLM)")
-                            explanation_workflow = ExplanationWorkflow()
-                            
-                            # Determine operation type based on user message
-                            operation_type = 'general'
-                            user_msg_lower = user_msg.lower()
-                            if any(word in user_msg_lower for word in ['create', 'add', 'generate', 'make', 'want', 'need', 'populate', 'fill', 'put', 'insert']):
-                                operation_type = 'data_creation'
-                            elif any(word in user_msg_lower for word in ['formula', 'calculate', 'sum', 'average', 'compute', 'math']):
-                                operation_type = 'formula_application'
-                            elif any(word in user_msg_lower for word in ['sort', 'order', 'arrange', 'organize']):
-                                operation_type = 'sorting'
-                            elif any(word in user_msg_lower for word in ['filter', 'find', 'search', 'look', 'show']):
-                                operation_type = 'filtering'
-                            elif any(word in user_msg_lower for word in ['chart', 'graph', 'plot', 'visualize']):
-                                operation_type = 'chart_creation'
-                            
-                            # Debug: Show what's changing
-                            print(f"📊 Before: {before_df.shape}, After: {after_df.shape}")
-                            if not before_df.empty and not after_df.empty:
-                                print(f"📊 Before sample: {before_df.head(2).values.tolist()}")
-                                print(f"📊 After sample:  {after_df.head(2).values.tolist()}")
-                            
-                            # Generate basic explanation
-                            # Use the pre-calculated DataFrames from above
-                            # before_df and after_df are already calculated
-                            
-                            # Debug: Show what's changing
-                            print(f"📊 Before: {before_df.shape}, After: {after_df.shape}")
-                            if not before_df.empty and not after_df.empty:
-                                print(f"📊 Before sample: {before_df.head(2).values.tolist()}")
-                                print(f"📊 After sample:  {after_df.head(2).values.tolist()}")
-                            
-                            # Generate intelligent explanation
-                            
-                            explanation = explanation_workflow.generate_explanation(
-                                operation_type=operation_type,
-                                before_df=before_df,
-                                after_df=after_df,
-                                operation_context={
-                                    'user_request': user_msg,
-                                    'operation_type': operation_type,
-                                    'timestamp': timestamp
-                                }
-                            )
-                            
-                            # Combine AI response with basic explanation
-                            full_response = f"{reply}\n\n---\n\n{explanation}"
+                            # No LLM available - skip explanation
+                            print("⚠️ CLEAN PIPELINE: No local LLM available - skipping explanation")
+                            full_response = reply
                             
                     except Exception as e:
                         # If explanation fails, just use the AI response
+                        print(f"🚨 CLEAN PIPELINE: Explanation generation failed: {str(e)}")
                         st.warning(f"⚠️ Explanation generation failed: {str(e)[:100]}...")
                         full_response = reply
                 else:
@@ -1981,137 +1933,11 @@ with st.sidebar:
         except Exception as e:
             error_msg = str(e)
             
-            # Try fallback model
-            if "model_not_found" in error_msg or "does not have access" in error_msg:
-                try:
-                    st.warning(f"⚠️ Trying fallback model...")
-                    fallback_model = "gpt-4-turbo-2024-04-09"
-                    with st.spinner("🤖 AI is processing with fallback model..."):
-                        # Create a working copy for the fallback agent
-                        fallback_workbook = copy.deepcopy(st.session_state.workbook)
-                        
-                        reply = run_agent(
-                            user_msg=user_msg.strip(),
-                            workbook=fallback_workbook,  # Use working copy
-                            current_sheet=st.session_state.current_sheet,
-                            chat_history=chat_history,
-                            model_name=fallback_model
-                        )
-                        
-                        # Update the actual workbook with the fallback agent's changes
-                        st.session_state.workbook = fallback_workbook
-                        st.session_state.chat_model = fallback_model
-                        
-                        # Generate explanation for fallback response too (if enabled)
-                        if st.session_state.enable_explanations:
-                            try:
-                                # Try to get a local LLM for intelligent explanations
-                                local_llm = get_local_llm()
-                                
-                                if local_llm:
-                                    # Use intelligent workflow with LangChain + LangGraph
-                                    intelligent_workflow = IntelligentExplanationWorkflow(local_llm)
-                                    
-                                    # Determine operation type based on user message
-                                    operation_type = 'general'
-                                    user_msg_lower = user_msg.lower()
-                                    if any(word in user_msg_lower for word in ['create', 'add', 'generate', 'make', 'want', 'need', 'populate', 'fill', 'put', 'insert']):
-                                        operation_type = 'data_creation'
-                                    elif any(word in user_msg_lower for word in ['formula', 'calculate', 'sum', 'average', 'compute', 'math']):
-                                        operation_type = 'formula_application'
-                                    elif any(word in user_msg_lower for word in ['sort', 'order', 'arrange', 'organize']):
-                                        operation_type = 'sorting'
-                                    elif any(word in user_msg_lower for word in ['filter', 'find', 'search', 'look', 'show']):
-                                        operation_type = 'filtering'
-                                    elif any(word in user_msg_lower for word in ['chart', 'graph', 'plot', 'visualize']):
-                                        operation_type = 'chart_creation'
-                                    
-                                    # Debug: Show what's changing
-                                    print(f"📊 Before: {before_df.shape}, After: {after_df.shape}")
-                                    if not before_df.empty and not after_df.empty:
-                                        print(f"📊 Before sample: {before_df.head(2).values.tolist()}")
-                                        print(f"📊 After sample:  {after_df.head(2).values.tolist()}")
-                                    
-                                    # Generate intelligent explanation
-                                    explanation = intelligent_workflow.generate_intelligent_explanation(
-                                        operation_type=operation_type,
-                                        before_df=before_df,
-                                        after_df=after_df,
-                                        operation_context={
-                                            'user_request': user_msg,
-                                            'operation_type': operation_type,
-                                            'timestamp': timestamp
-                                        }
-                                    )
-                                    
-                                    # Combine AI response with intelligent explanation
-                                    full_response = f"{reply}\n\n---\n\n{explanation}"
-                                    
-                                else:
-                                    # Fallback to basic explanation workflow
-                                    explanation_workflow = ExplanationWorkflow()
-                                    
-                                    # Determine operation type based on user message
-                                    operation_type = 'general'
-                                    user_msg_lower = user_msg.lower()
-                                    if any(word in user_msg_lower for word in ['create', 'add', 'generate', 'make', 'want', 'need', 'populate', 'fill', 'put', 'insert']):
-                                        operation_type = 'data_creation'
-                                    elif any(word in user_msg_lower for word in ['formula', 'calculate', 'sum', 'average', 'compute', 'math']):
-                                        operation_type = 'formula_application'
-                                    elif any(word in user_msg_lower for word in ['sort', 'order', 'arrange', 'organize']):
-                                        operation_type = 'sorting'
-                                    elif any(word in user_msg_lower for word in ['filter', 'find', 'search', 'look', 'show']):
-                                        operation_type = 'filtering'
-                                    elif any(word in user_msg_lower for word in ['chart', 'graph', 'plot', 'visualize']):
-                                        operation_type = 'chart_creation'
-                                    
-                                    # Debug: Show what's changing
-                                    print(f"📊 Before: {before_df.shape}, After: {after_df.shape}")
-                                    if not before_df.empty and not after_df.empty:
-                                        print(f"📊 Before sample: {before_df.head(2).values.tolist()}")
-                                        print(f"📊 After sample:  {after_df.head(2).values.tolist()}")
-                                    
-                                    # Generate basic explanation
-                                    
-                                    explanation = explanation_workflow.generate_explanation(
-                                        operation_type=operation_type,
-                                        before_df=before_df,
-                                        after_df=after_df,
-                                        operation_context={
-                                            'user_request': user_msg,
-                                            'operation_type': operation_type,
-                                            'timestamp': timestamp
-                                        }
-                                    )
-                                    
-                                    # Combine AI response with basic explanation
-                                    full_response = f"{reply}\n\n---\n\n{explanation}"
-                                    
-                            except Exception as e:
-                                # If explanation fails, just use the AI response
-                                st.warning(f"⚠️ Explanation generation failed: {str(e)[:100]}...")
-                                full_response = reply
-                        else:
-                            # Explanations disabled, use only AI response
-                            full_response = reply
-                        
-                        # Add combined response to history
-                        st.session_state.chat_histories[st.session_state.current_sheet].append({
-                            "role": "assistant",
-                            "content": full_response
-                        })
-                except Exception as e2:
-                    error_reply = f"❌ Error: {str(e2)[:100]}..."
-                    st.session_state.chat_histories[st.session_state.current_sheet].append({
-                        "role": "assistant",
-                        "content": error_reply
-                    })
-            else:
-                error_reply = f"❌ Error: {error_msg[:100]}..."
-                st.session_state.chat_histories[st.session_state.current_sheet].append({
-                    "role": "assistant",
-                    "content": error_reply
-                })
+            # Clean pipeline - no fallback models
+            print(f"🚨 AI agent failed: {error_msg}")
+            st.error(f"AI processing failed: {error_msg}")
+            # Skip the rest of the processing for this message
+            pass
         
         # Rerun to show the updated chat and spreadsheet
         st.rerun()
