@@ -298,18 +298,26 @@ Example: ["analyze_data", "detect_changes", "validate_explanation"]"""),
                     explanation_chain = LLMChain(
                         llm=self.llm,
                         prompt=ChatPromptTemplate.from_messages([
-                            ("system", """You are an intelligent Excel analysis agent. Based on the tool results, generate a comprehensive explanation.
+                            ("system", """You are a helpful Excel assistant. Generate a user-friendly explanation about what happened to their spreadsheet data.
+
+IMPORTANT: 
+- Do NOT mention tools, technical details, or errors
+- Focus on what the user actually sees in their spreadsheet
+- Be conversational and helpful
+- Use "I" or "you" perspective, not "the user"
+- If it's stock data, talk about the actual stock prices and trends
+- If it's other data, describe what's actually in the spreadsheet
 
 Tool Results: {tool_results}
 
-Generate a structured explanation with:
-- Summary: Brief overview of what changed
-- Details: Specific changes and their impact  
-- Insights: Key patterns or observations
-- Next Steps: Recommended actions
+Generate a natural explanation that tells the user:
+- What data was created/added to their spreadsheet
+- What the data contains (actual values, not technical details)
+- Any interesting patterns or insights about the data
+- What they can do next with this data
 
-Be precise and use exact numbers from the tool results."""),
-                            ("human", "Generate explanation for: {input}")
+Be friendly, accurate, and focus on the actual content, not the technical process."""),
+                            ("human", "Generate a user-friendly explanation for: {input}")
                         ])
                     )
                     
@@ -369,27 +377,8 @@ Be precise and use exact numbers from the tool results."""),
             # Format the output
             explanation = result.get("output", "No explanation generated")
             
-            # Try to parse as structured output
-            try:
-                parsed_output = self.output_parser.parse(explanation)
-                formatted_output = f"""
-**Intelligent Analysis Summary**
-
-**Summary of Changes**
-{parsed_output.summary}
-
-**Detailed Analysis**
-{parsed_output.details}
-
-**Key Insights**
-{parsed_output.insights}
-
-**Next Steps**
-{parsed_output.next_steps}
-"""
-            except:
-                # Fallback to raw explanation
-                formatted_output = f"""
+            # Format the explanation cleanly
+            formatted_output = f"""
 **Intelligent Analysis Summary**
 
 {explanation}
