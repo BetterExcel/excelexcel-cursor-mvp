@@ -121,3 +121,7 @@ test_api.py
 .streamlit/
 
 data/
+
+# Demo and documentation files
+CODEBASE_WALKTHROUGH_DEMO.md
+EXPLANATION_AGENT_ROADMAP.md
