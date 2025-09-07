@@ -84,7 +84,7 @@ class LocalLLMProvider:
         try:
             # Try to connect to Ollama
             self.llm = OllamaLLM(
-                model="llama3.2:3b",  # Lightweight model
+                model="llama3.1:8b",  # More powerful model for better analysis
                 base_url="http://localhost:11434"
             )
             

@@ -121,6 +121,7 @@ class ChangeDetector:
         # Compare common data
         modified_cells = []
         total_changes = 0
+        formulas_detected = []
         
         for col in common_columns:
             for row_idx in range(min_rows):
@@ -131,35 +132,59 @@ class ChangeDetector:
                 before_is_empty = pd.isna(before_val) or before_val is None or str(before_val).strip() == ''
                 after_is_empty = pd.isna(after_val) or after_val is None or str(after_val).strip() == ''
                 
+                # Check if the new value is a formula
+                is_formula = False
+                if not after_is_empty and str(after_val).strip().startswith('='):
+                    is_formula = True
+                    formulas_detected.append({
+                        'cell': f"{col}{row_idx + 1}",
+                        'formula': str(after_val).strip(),
+                        'result': str(after_val)  # The evaluated result
+                    })
+                
                 if before_is_empty and after_is_empty:
                     continue
                 elif before_is_empty or after_is_empty:
+                    change_type = 'formula_added' if is_formula else 'value_change'
                     modified_cells.append({
                         'cell': f"{col}{row_idx + 1}",
                         'before': "empty" if before_is_empty else str(before_val),
                         'after': "empty" if after_is_empty else str(after_val),
-                        'change_type': 'value_change'
+                        'change_type': change_type,
+                        'is_formula': is_formula
                     })
                     total_changes += 1
                 elif str(before_val).strip() != str(after_val).strip():
+                    change_type = 'formula_added' if is_formula else 'value_change'
                     modified_cells.append({
                         'cell': f"{col}{row_idx + 1}",
                         'before': str(before_val),
                         'after': str(after_val),
-                        'change_type': 'value_change'
+                        'change_type': change_type,
+                        'is_formula': is_formula
                     })
                     total_changes += 1
         
         changes['cells_modified'] = modified_cells
         changes['total_cells_changed'] = total_changes
+        changes['formulas_detected'] = formulas_detected
         
         # Debug output - show what actually changed
         if total_changes > 0:
             print(f"🔍 ChangeDetector: {total_changes} cells changed")
             for i, change in enumerate(modified_cells[:5]):  # Show first 5 changes
-                print(f"   {change['cell']}: '{change['before']}' → '{change['after']}'")
+                formula_indicator = " [FORMULA]" if change.get('is_formula', False) else ""
+                print(f"   {change['cell']}: '{change['before']}' → '{change['after']}'{formula_indicator}")
             if len(modified_cells) > 5:
                 print(f"   ... and {len(modified_cells) - 5} more changes")
+            
+            # Show formula information
+            if formulas_detected:
+                print(f"🔍 ChangeDetector: {len(formulas_detected)} formulas detected:")
+                for formula in formulas_detected[:3]:  # Show first 3 formulas
+                    print(f"   {formula['cell']}: {formula['formula']}")
+                if len(formulas_detected) > 3:
+                    print(f"   ... and {len(formulas_detected) - 3} more formulas")
         else:
             print("🔍 ChangeDetector: No content changes detected")
         
@@ -276,17 +301,32 @@ class ChangeDetector:
         if changes['total_cells_changed'] > 0:
             key_info_parts.append(f"Total changes: {changes['total_cells_changed']} cells")
             
+            # Show formula information if any
+            if 'formulas_detected' in changes and changes['formulas_detected']:
+                formula_count = len(changes['formulas_detected'])
+                key_info_parts.append(f"Formulas applied: {formula_count} cells")
+                
+                # Show sample formulas
+                sample_formulas = changes['formulas_detected'][:2]  # Show first 2 formulas
+                formula_descriptions = []
+                for formula in sample_formulas:
+                    formula_descriptions.append(f"{formula['cell']}: {formula['formula']}")
+                if formula_descriptions:
+                    key_info_parts.append(f"Sample formulas: {'; '.join(formula_descriptions)}")
+            
             # Show sample of what changed
             if changes['cells_modified']:
                 sample_changes = changes['cells_modified'][:3]  # Show first 3 changes
                 change_descriptions = []
                 for change in sample_changes:
                     if change['before'] == 'empty':
-                        change_descriptions.append(f"{change['cell']}: added {change['after']}")
+                        formula_indicator = " (formula)" if change.get('is_formula', False) else ""
+                        change_descriptions.append(f"{change['cell']}: added {change['after']}{formula_indicator}")
                     elif change['after'] == 'empty':
                         change_descriptions.append(f"{change['cell']}: removed {change['before']}")
                     else:
-                        change_descriptions.append(f"{change['cell']}: {change['before']} → {change['after']}")
+                        formula_indicator = " (formula)" if change.get('is_formula', False) else ""
+                        change_descriptions.append(f"{change['cell']}: {change['before']} → {change['after']}{formula_indicator}")
                 
                 if change_descriptions:
                     key_info_parts.append(f"Sample changes: {'; '.join(change_descriptions)}")

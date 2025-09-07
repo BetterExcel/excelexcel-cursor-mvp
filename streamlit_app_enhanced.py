@@ -871,32 +871,52 @@ def create_column_config(df):
             # Check the data type of the column
             sample_data = df[col].dropna()
             if len(sample_data) > 0:
-                # Try to determine the best column type
-                if pd.api.types.is_numeric_dtype(df[col]):
-                    # Numeric data - use number column
-                    if df[col].dtype == 'int64':
-                        config[col] = st.column_config.NumberColumn(
-                            help=f"Integer column {col}",
-                            step=1,
-                            format="%d"
-                        )
-                    else:
-                        config[col] = st.column_config.NumberColumn(
-                            help=f"Numeric column {col}",
-                            step=0.01,
-                            format="%.2f"
-                        )
-                elif pd.api.types.is_datetime64_any_dtype(df[col]):
-                    # DateTime data
-                    config[col] = st.column_config.DatetimeColumn(
-                        help=f"Date/time column {col}"
-                    )
-                else:
-                    # Text or mixed data - use text column
+                # Check if column contains formulas (starts with =)
+                has_formulas = df[col].astype(str).str.startswith('=').any()
+                
+                if has_formulas:
+                    # Formula column - always use text to avoid conflicts
                     config[col] = st.column_config.TextColumn(
-                        help=f"Text column {col}",
+                        help=f"Formula column {col}",
                         max_chars=1000,
                     )
+                else:
+                    # Check for mixed data types by converting to string and checking patterns
+                    col_str = df[col].astype(str)
+                    has_text = col_str.str.contains(r'[a-zA-Z]', na=False).any()
+                    has_numbers = col_str.str.match(r'^-?\d+\.?\d*$', na=False).any()
+                    
+                    if has_text and has_numbers:
+                        # Mixed data - use text column to avoid conflicts
+                        config[col] = st.column_config.TextColumn(
+                            help=f"Mixed data column {col}",
+                            max_chars=1000,
+                        )
+                    elif pd.api.types.is_numeric_dtype(df[col]) and not has_text:
+                        # Pure numeric data
+                        if df[col].dtype == 'int64':
+                            config[col] = st.column_config.NumberColumn(
+                                help=f"Integer column {col}",
+                                step=1,
+                                format="%d"
+                            )
+                        else:
+                            config[col] = st.column_config.NumberColumn(
+                                help=f"Numeric column {col}",
+                                step=0.01,
+                                format="%.2f"
+                            )
+                    elif pd.api.types.is_datetime64_any_dtype(df[col]):
+                        # DateTime data
+                        config[col] = st.column_config.DatetimeColumn(
+                            help=f"Date/time column {col}"
+                        )
+                    else:
+                        # Text or other data - use text column
+                        config[col] = st.column_config.TextColumn(
+                            help=f"Text column {col}",
+                            max_chars=1000,
+                        )
             else:
                 # Empty column - default to text
                 config[col] = st.column_config.TextColumn(

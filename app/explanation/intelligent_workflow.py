@@ -90,46 +90,169 @@ class IntelligentExplanationWorkflow:
             
             # Use LangChain to analyze changes
             analysis_prompt = PromptTemplate.from_template("""
-            You are an AI spreadsheet assistant. Analyze the changes you made to the spreadsheet and provide intelligent insights.
+            You are an AI spreadsheet assistant. Analyze ONLY the actual changes you made to the spreadsheet.
+            
+            CRITICAL: You must be 100% accurate. Do NOT make up or assume anything.
             
             Before DataFrame Shape: {before_shape}
             After DataFrame Shape: {after_shape}
             Operation Type: {operation_type}
             User Request: {user_request}
+            Formulas Used: {formulas_info}
             
-            As the AI assistant who made these changes, analyze:
-            1. **Structural Changes**: What you changed in the table structure (rows/columns added/removed)
-            2. **Data Patterns**: What type of data you created (numeric, text, formulas, patterns)
-            3. **Accomplishment**: What you successfully accomplished
-            4. **Smart Insights**: Professional observations about the data quality, potential issues, or opportunities
+            ACTUAL DATA CONTENT:
+            Before Data:
+            {before_data}
             
-            IMPORTANT: Respond with ONLY valid JSON. Do not include any text before or after the JSON. Start directly with {{ and end with }}.
+            After Data:
+            {after_data}
+            
+            STRICT RULES:
+            1. If before_shape equals after_shape, you did NOT add/remove rows or columns
+            2. If formulas_info is "none", you did NOT use any formulas
+            3. ONLY describe what you can see in the ACTUAL DATA above
+            4. Do NOT make up numbers, ranges, or statistics
+            5. Do NOT claim to have done things you didn't do
+            6. Use the ACTUAL DATA CONTENT to analyze what happened
+            
+            Analyze ONLY what actually happened:
+            1. **Structural Changes**: Did you actually change rows/columns? (Compare before_shape vs after_shape)
+            2. **Data Content**: What type of data did you actually create? (Look at the ACTUAL DATA above)
+            3. **Formulas**: Did you actually use formulas? (Check formulas_info)
+            4. **Accomplishment**: What did you actually accomplish based on the user request?
+            5. **Observations**: What can you actually observe about the REAL DATA shown above?
+            
+            Respond with ONLY valid JSON. Start with {{ and end with }}.
             
             {{
-                "structural_changes": "detailed description of structural changes you made",
-                "data_patterns": "analysis of data types and patterns you created",
-                "accomplishment": "what you successfully accomplished",
-                "observations": "professional insights and recommendations about the data"
+                "structural_changes": "exact description of structural changes (or 'no structural changes' if shapes are identical)",
+                "data_patterns": "description of actual data types created (be specific about what you see in the ACTUAL DATA)",
+                "formulas_applied": "exact formulas used (or 'no formulas used' if formulas_info is 'none')",
+                "accomplishment": "what you actually accomplished based on the user request",
+                "observations": "observations about the ACTUAL DATA shown above (no made-up statistics)"
             }}
             """)
             
             if self.llm:
-                print("🔍 LLM available, creating analysis chain...")
-                # Use LangChain LLM for intelligent analysis
-                analysis_chain = analysis_prompt | self.llm | StrOutputParser()
-                print("🔍 Analysis chain created successfully!")
+                print("🔍 LLM available, using single-prompt approach with better model...")
                 
-                analysis_input = {
-                    "before_shape": str(state["before_df"].shape) if state.get("before_df") is not None else "None",
-                    "after_shape": str(state["after_df"].shape) if state.get("after_df") is not None else "None",
-                    "operation_type": state.get("operation_type", "unknown"),
-                    "user_request": state.get("operation_context", {}).get("user_request", "unknown") if state.get("operation_context") else "unknown"
-                }
-                print(f"🔍 Analysis input: {analysis_input}")
+                # Get formula information from change analysis
+                formulas_info = "none"
+                if state.get("change_analysis") and "formulas_detected" in state["change_analysis"]:
+                    formulas = state["change_analysis"]["formulas_detected"]
+                    if formulas:
+                        formula_descriptions = [f"{f['cell']}: {f['formula']}" for f in formulas[:3]]  # Show first 3
+                        formulas_info = "; ".join(formula_descriptions)
+                        if len(formulas) > 3:
+                            formulas_info += f" (and {len(formulas) - 3} more)"
                 
-                print("🔍 Invoking LLM for analysis...")
-                analysis_result = analysis_chain.invoke(analysis_input)
-                print(f"🔍 LLM analysis result: {analysis_result[:200]}...")
+                # Get actual data content for LLM analysis with better formatting
+                before_data_sample = "No data"
+                after_data_sample = "No data"
+                
+                if state.get("before_df") is not None:
+                    before_df = state["before_df"]
+                    # Get first 5 rows with better formatting
+                    before_sample = before_df.head(5)
+                    # Convert to a more readable format
+                    before_data_sample = "First 5 rows:\n"
+                    for idx, row in before_sample.iterrows():
+                        row_data = []
+                        for col, val in row.items():
+                            if pd.isna(val) or val is None:
+                                row_data.append("None")
+                            else:
+                                row_data.append(str(val))
+                        before_data_sample += f"Row {idx}: {', '.join(row_data)}\n"
+                
+                if state.get("after_df") is not None:
+                    after_df = state["after_df"]
+                    # Get first 5 rows with better formatting
+                    after_sample = after_df.head(5)
+                    # Convert to a more readable format
+                    after_data_sample = "First 5 rows:\n"
+                    for idx, row in after_sample.iterrows():
+                        row_data = []
+                        for col, val in row.items():
+                            if pd.isna(val) or val is None:
+                                row_data.append("None")
+                            else:
+                                row_data.append(str(val))
+                        after_data_sample += f"Row {idx}: {', '.join(row_data)}\n"
+                
+                # Single comprehensive prompt with all information
+                before_shape = state["before_df"].shape if state.get("before_df") is not None else (0, 0)
+                after_shape = state["after_df"].shape if state.get("after_df") is not None else (0, 0)
+                
+                analysis_prompt = f"""You are an AI spreadsheet assistant. Analyze ONLY the actual changes made to a spreadsheet.
+
+SHAPE COMPARISON (CRITICAL):
+- Before Shape: {before_shape}
+- After Shape: {after_shape}
+- Shape Changed: {before_shape != after_shape}
+
+OPERATION DETAILS:
+- Operation Type: {state.get("operation_type", "unknown")}
+- User Request: {state.get("operation_context", {}).get("user_request", "unknown") if state.get("operation_context") else "unknown"}
+- Formulas Used: {formulas_info}
+
+ACTUAL DATA CONTENT:
+BEFORE DATA:
+{before_data_sample}
+
+AFTER DATA:
+{after_data_sample}
+
+MANDATORY ANALYSIS RULES:
+1. STRUCTURAL CHANGES: If before_shape == after_shape, you did NOT add/remove rows or columns. Say "no structural changes" if shapes are identical.
+2. DATA PATTERNS: Describe ONLY what you can see in the ACTUAL DATA above. Reference specific values like "151.45", "2023-11-01", etc.
+3. FORMULAS: If formulas_info is "none", you did NOT use any formulas.
+4. ACCOMPLISHMENT: What you actually accomplished based on the user request.
+5. OBSERVATIONS: Only observations about the ACTUAL DATA shown above. No made-up statistics.
+
+VALIDATION CHECKLIST:
+- Did I add rows? {before_shape[0] != after_shape[0]}
+- Did I add columns? {before_shape[1] != after_shape[1]}
+- Did I use formulas? {formulas_info != "none"}
+- Do I have actual data to reference? {len(after_data_sample) > 10}
+
+Respond with ONLY valid JSON. Start with {{ and end with }}.
+
+{{
+    "structural_changes": "exact description (or 'no structural changes' if shapes are identical)",
+    "data_patterns": "description of actual data types with specific values from ACTUAL DATA above",
+    "formulas_applied": "exact formulas used (or 'no formulas used' if formulas_info is 'none')",
+    "accomplishment": "what you actually accomplished based on the user request",
+    "observations": "observations about the ACTUAL DATA shown above (reference specific values)"
+}}"""
+
+                print("🔍 Sending comprehensive prompt to LLM...")
+                analysis_result = self.llm.invoke(analysis_prompt)
+                print(f"🔍 LLM Response: {analysis_result[:200]}...")
+                
+                # DEBUG: Show if LLM is using the actual data
+                print("🔍 DEBUG: Checking if LLM used actual data...")
+                
+                # Dynamic check based on actual data content
+                data_indicators = []
+                if state.get("after_df") is not None:
+                    after_df = state["after_df"]
+                    # Get some actual values from the data for validation
+                    for col in after_df.columns:
+                        for val in after_df[col].dropna().head(3):
+                            if isinstance(val, (int, float)) and val != 0:
+                                data_indicators.append(str(val))
+                            elif isinstance(val, str) and len(val) > 2:
+                                data_indicators.append(val)
+                
+                # Check if LLM referenced any actual data
+                llm_used_data = any(indicator in analysis_result for indicator in data_indicators[:5])
+                
+                if llm_used_data:
+                    print("   ✅ LLM appears to be using actual data")
+                else:
+                    print("   ❌ LLM is NOT using actual data - making up fake information")
+                    print(f"   🔍 Available data indicators: {data_indicators[:5]}")
                 
                 # Parse the JSON response - handle various formatting
                 try:
@@ -156,8 +279,54 @@ class IntelligentExplanationWorkflow:
                     print(f"🔍 Cleaned JSON: {cleaned_result[:200]}...")
                     
                     analysis_data = json.loads(cleaned_result)
-                    state["change_analysis"] = analysis_data
-                    print("🔍 Analysis data parsed successfully!")
+                    
+                    # VALIDATION: Check if LLM made obvious errors
+                    validation_errors = []
+                    
+                    # Check 1: Structural changes validation
+                    if "structural_changes" in analysis_data:
+                        structural_text = analysis_data["structural_changes"].lower()
+                        before_shape = state["before_df"].shape if state.get("before_df") is not None else (0, 0)
+                        after_shape = state["after_df"].shape if state.get("after_df") is not None else (0, 0)
+                        
+                        # If shapes are identical, LLM should not claim rows/columns were added
+                        if before_shape == after_shape:
+                            if any(word in structural_text for word in ["added", "new rows", "new columns", "increased"]):
+                                validation_errors.append(f"LLM claimed structural changes when shapes are identical: {before_shape} == {after_shape}")
+                    
+                    # Check 2: Data patterns validation
+                    if "data_patterns" in analysis_data and not llm_used_data:
+                        validation_errors.append("LLM provided data patterns without referencing actual data")
+                    
+                    if validation_errors:
+                        print(f"🚨 LLM VALIDATION FAILED: {validation_errors}")
+                        print("🔄 Using fallback analysis instead...")
+                        
+                        # Use ChangeDetector for accurate analysis
+                        try:
+                            changes = self.change_detector.detect_changes(
+                                state["before_df"], 
+                                state["after_df"], 
+                                state.get("operation_type", "general"),
+                                state.get("operation_context", {})
+                            )
+                            
+                            # Create accurate analysis based on actual changes
+                            state["change_analysis"] = {
+                                "structural_changes": f"Rows: {changes['before_shape'][0]} → {changes['after_shape'][0]} ({changes['rows_added']:+d}), Columns: {changes['before_shape'][1]} → {changes['after_shape'][1]} ({changes['columns_added']:+d})",
+                                "data_patterns": f"Content changes: {changes['total_cells_changed']} cells modified" if changes['total_cells_changed'] > 0 else "No content changes detected",
+                                "formulas_applied": f"{len(changes.get('formulas_detected', []))} formulas used" if changes.get('formulas_detected') else "no formulas used",
+                                "accomplishment": changes.get('summary', 'Operation completed successfully'),
+                                "observations": f"Data structure: {changes['before_shape']} → {changes['after_shape']}"
+                            }
+                            print("✅ Fallback analysis completed successfully!")
+                        except Exception as e:
+                            print(f"🚨 Fallback analysis failed: {str(e)}")
+                            # Use LLM result despite validation errors
+                            state["change_analysis"] = analysis_data
+                    else:
+                        state["change_analysis"] = analysis_data
+                        print("🔍 Analysis data parsed and validated successfully!")
                 except json.JSONDecodeError as e:
                     print(f"🔍 JSON parsing failed: {str(e)}")
                     print(f"🔍 Raw result: {analysis_result[:300]}...")
@@ -253,40 +422,53 @@ class IntelligentExplanationWorkflow:
         try:
             print("📝 Creating explanation with LLM...")
             if self.llm:
-                explanation_prompt = PromptTemplate.from_template("""
-                You are an AI spreadsheet assistant speaking directly to the person who requested the changes. Create an intelligent, comprehensive explanation of what you accomplished.
+                print("📝 Using single-prompt approach for explanation generation...")
                 
-                Change Analysis: {change_analysis}
-                Data Insights: {data_insights}
-                Operation Type: {operation_type}
-                User Request: {user_request}
+                # Get actual data for explanation generation
+                after_data_for_explanation = "No data"
+                if state.get("after_df") is not None:
+                    after_df = state["after_df"]
+                    after_data_for_explanation = after_df.head(10).to_string()
                 
-                Write a direct, conversational explanation that:
-                1. **Clearly explains what you changed** - specific details about the modifications you made
-                2. **Highlights what you accomplished** - what you successfully created for them
-                3. **Provides data insights** - analysis of actual data extremes, ranges, and interesting patterns
-                4. **Offers confident, concise recommendations** - short, actionable next steps
-                5. **Speaks directly to the person** - use "you" and "I" conversationally, not "the user"
+                # Single comprehensive explanation prompt
+                explanation_prompt = f"""You are an AI spreadsheet assistant speaking directly to the person who requested changes. Create an explanation of what you accomplished.
+
+CONTEXT:
+- Change Analysis: {json.dumps(state.get("change_analysis", {}))}
+- Data Insights: {json.dumps(state.get("data_insights", {}))}
+- Operation Type: {state.get("operation_type", "unknown")}
+- User Request: {state.get("operation_context", {}).get("user_request", "unknown") if state.get("operation_context") else "unknown"}
+
+ACTUAL DATA YOU CREATED:
+{after_data_for_explanation}
+
+CRITICAL RULES:
+1. ONLY describe what you actually did - no made-up details
+2. If you didn't add rows/columns, don't say you did
+3. If you didn't use formulas, don't mention formulas
+4. If you don't have actual data statistics, don't make them up
+5. Be honest about what you accomplished vs. what you didn't
+6. Use the ACTUAL DATA shown above
+
+Write a direct, conversational explanation that:
+1. **Accurately explains what you changed** - only the actual modifications you made
+2. **Honestly describes what you accomplished** - what you actually created for them
+3. **Provides real data insights** - only if you have actual data to analyze from the ACTUAL DATA above
+4. **Offers practical recommendations** - based on what you actually created
+5. **Speaks directly to the person** - use "you" and "I" conversationally
+
+Structure your response with clear sections:
+- **Summary of Changes** (be accurate about what you actually did)
+- **What This Means** (explain the practical value of what you created)
+- **Data Insights** (only if you have real data to analyze from the ACTUAL DATA above - no made-up statistics)
+- **Next Steps** (suggest 1-2 specific actions based on what you actually created, end with "What would you like to change next?")
+
+Be honest and specific. If you don't know something, don't make it up. Use the ACTUAL DATA above."""
+
+                print("📝 Sending comprehensive explanation prompt to LLM...")
+                explanation_result = self.llm.invoke(explanation_prompt)
+                print(f"📝 LLM Response: {explanation_result[:200]}...")
                 
-                Structure your response with clear sections:
-                - **Summary of Changes**
-                - **What This Means**
-                - **Data Insights** (focus on actual data extremes, ranges, and interesting patterns - not generic statements)
-                - **Next Steps** (keep this section short and confident - suggest 1-2 specific actions, end with "What would you like to change next?")
-                
-                Be specific about numbers, locations, and data types. Speak directly to the person as if you're having a conversation.
-                """)
-                
-                explanation_chain = explanation_prompt | self.llm | StrOutputParser()
-                
-                explanation_input = {
-                    "change_analysis": json.dumps(state.get("change_analysis", {})),
-                    "data_insights": json.dumps(state.get("data_insights", {})),
-                    "operation_type": state.get("operation_type", "unknown"),
-                    "user_request": state.get("operation_context", {}).get("user_request", "unknown") if state.get("operation_context") else "unknown"
-                }
-                
-                explanation_result = explanation_chain.invoke(explanation_input)
                 state["explanation"] = explanation_result
                 
             else:
