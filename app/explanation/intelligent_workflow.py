@@ -298,6 +298,47 @@ Respond with ONLY valid JSON. Start with {{ and end with }}.
                     if "data_patterns" in analysis_data and not llm_used_data:
                         validation_errors.append("LLM provided data patterns without referencing actual data")
                     
+                    # Check 3: Structural accuracy validation
+                    if "data_patterns" in analysis_data and state.get("after_df") is not None:
+                        after_df = state["after_df"]
+                        data_patterns_text = analysis_data["data_patterns"].lower()
+                        
+                        # Extract actual data structure
+                        actual_columns_with_data = []
+                        actual_rows_with_data = []
+                        
+                        for col_idx, col in enumerate(after_df.columns):
+                            col_has_data = not after_df[col].isna().all()
+                            if col_has_data:
+                                actual_columns_with_data.append(f"column {chr(65 + col_idx)}")  # A, B, C, etc.
+                        
+                        for row_idx in range(len(after_df)):
+                            row_has_data = not after_df.iloc[row_idx].isna().all()
+                            if row_has_data:
+                                actual_rows_with_data.append(row_idx)
+                        
+                        # Check if LLM correctly identifies columns
+                        if actual_columns_with_data:
+                            # Check if LLM mentions wrong columns
+                            mentioned_columns = []
+                            for col_letter in ['a', 'b', 'c', 'd', 'e']:
+                                if f"column {col_letter}" in data_patterns_text or f"column {col_letter.upper()}" in data_patterns_text:
+                                    mentioned_columns.append(col_letter.upper())
+                            
+                            # If LLM mentions columns that don't have data
+                            wrong_columns = [col for col in mentioned_columns if col not in [c.split()[-1] for c in actual_columns_with_data]]
+                            if wrong_columns:
+                                validation_errors.append(f"LLM mentioned columns {wrong_columns} that don't contain data. Actual columns with data: {[c.split()[-1] for c in actual_columns_with_data]}")
+                        
+                        # Check if LLM correctly identifies row ranges
+                        if actual_rows_with_data:
+                            min_row, max_row = min(actual_rows_with_data), max(actual_rows_with_data)
+                            # Check if LLM mentions wrong row ranges
+                            if "rows 1-9" in data_patterns_text and (min_row != 1 or max_row != 9):
+                                validation_errors.append(f"LLM mentioned 'rows 1-9' but actual data is in rows {min_row}-{max_row}")
+                            elif "rows 0-4" in data_patterns_text and (min_row != 0 or max_row != 4):
+                                validation_errors.append(f"LLM mentioned 'rows 0-4' but actual data is in rows {min_row}-{max_row}")
+                    
                     if validation_errors:
                         print(f"🚨 LLM VALIDATION FAILED: {validation_errors}")
                         print("🔄 Using fallback analysis instead...")
@@ -312,9 +353,32 @@ Respond with ONLY valid JSON. Start with {{ and end with }}.
                             )
                             
                             # Create accurate analysis based on actual changes
+                            after_df = state["after_df"]
+                            
+                            # Extract actual data structure for accurate description
+                            actual_columns_with_data = []
+                            actual_rows_with_data = []
+                            
+                            for col_idx, col in enumerate(after_df.columns):
+                                col_has_data = not after_df[col].isna().all()
+                                if col_has_data:
+                                    actual_columns_with_data.append(chr(65 + col_idx))  # A, B, C, etc.
+                            
+                            for row_idx in range(len(after_df)):
+                                row_has_data = not after_df.iloc[row_idx].isna().all()
+                                if row_has_data:
+                                    actual_rows_with_data.append(row_idx)
+                            
+                            # Create accurate data patterns description
+                            if actual_columns_with_data and actual_rows_with_data:
+                                min_row, max_row = min(actual_rows_with_data), max(actual_rows_with_data)
+                                data_patterns_desc = f"Data added in column{'s' if len(actual_columns_with_data) > 1 else ''} {', '.join(actual_columns_with_data)}, rows {min_row}-{max_row}"
+                            else:
+                                data_patterns_desc = "No data changes detected"
+                            
                             state["change_analysis"] = {
                                 "structural_changes": f"Rows: {changes['before_shape'][0]} → {changes['after_shape'][0]} ({changes['rows_added']:+d}), Columns: {changes['before_shape'][1]} → {changes['after_shape'][1]} ({changes['columns_added']:+d})",
-                                "data_patterns": f"Content changes: {changes['total_cells_changed']} cells modified" if changes['total_cells_changed'] > 0 else "No content changes detected",
+                                "data_patterns": data_patterns_desc,
                                 "formulas_applied": f"{len(changes.get('formulas_detected', []))} formulas used" if changes.get('formulas_detected') else "no formulas used",
                                 "accomplishment": changes.get('summary', 'Operation completed successfully'),
                                 "observations": f"Data structure: {changes['before_shape']} → {changes['after_shape']}"
