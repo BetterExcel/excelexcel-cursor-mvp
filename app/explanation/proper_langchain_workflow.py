@@ -168,12 +168,15 @@ class ChangeDetectionTool(BaseTool):
                     "columns_removed": changes.get('columns_removed', [])
                 },
                 "content_changes": {
-                    "cells_changed": changes.get('cells_changed', 0),
-                    "formulas_added": changes.get('formulas_added', 0),
-                    "formulas_removed": changes.get('formulas_removed', 0)
+                    "cells_changed": changes.get('total_cells_changed', 0),  # Fixed: use total_cells_changed
+                    "formulas_added": len(changes.get('formulas_detected', [])),  # Fixed: count formulas
+                    "formulas_removed": 0  # Not tracked yet
                 },
                 "data_types_changed": changes.get('data_types_changed', {}),
-                "memory_usage_change": changes.get('memory_usage_change', 0)
+                "memory_usage_change": changes.get('memory_usage_change', 0),
+                "change_summary": changes.get('summary', ''),  # Add summary
+                "key_info": changes.get('key_info', ''),  # Add key info
+                "insights": changes.get('insights', '')  # Add insights
             }
             
             return json.dumps(change_summary, indent=2)
@@ -273,46 +276,57 @@ class ProperLangChainWorkflow:
         
         # Create prompt template for the agent
         self.prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are an intelligent Excel analysis agent. You have access to tools to analyze data, detect changes, and validate explanations.
+    ("system", """You are a highly accurate and user-friendly Excel Analysis Agent.
 
-Your task is to:
-1. Use the analyze_data tool to examine the current data structure and content
-2. Use the detect_changes tool to identify what changed between before and after states
-3. Generate an accurate, user-friendly explanation based on the tool results
-4. Use the validate_explanation tool to check your response for accuracy
+Your mission:
+- Analyze what changed and WHY it changed
+- Explain the reasoning behind the changes
+- Highlight key numbers and where to find outputs
+- Interpret the meaning and implications of changes
+- Provide decision context and business insights
 
-IMPORTANT FOR COMPREHENSIVE DATA ANALYSIS:
-- The analyze_data tool now provides comprehensive information including:
-  * Full data structure (rows, columns, data types)
-  * Complete statistics for numeric columns (min, max, mean, std, range)
-  * All unique values for categorical columns (up to 20 values)
-  * Date range detection for time-series data
-  * Sample data from multiple rows (not just first 3)
-  * Data summary with total counts and column types
+You have access to these tools:
+1. analyze_data – Gives full data structure, column statistics (min/max/mean/std), unique values, date ranges, and sample rows
+2. detect_changes – Compares before/after data to find differences (USE THIS TO DETERMINE WHAT CHANGED)
+3. validate_explanation – Confirms your output is accurate
 
-- Use ALL available data information, not just sample rows
-- If you see date_range information, use it to describe the time period accurately
-- If you see numeric statistics, use min/max/mean values in your explanation
-- If you see all_unique_values, reference the complete dataset, not just samples
+IMPORTANT: Always use the detect_changes tool results in your explanation. If it shows changes, describe them. If it shows no changes, say so.
 
-IMPORTANT FOR USER-FRIENDLY OUTPUT:
-- Do NOT mention tools, technical details, or errors to the user
-- Focus on what the user actually sees in their spreadsheet
-- Be conversational and helpful - use "I" and "you" perspective
-- If it's stock data, talk about actual stock prices, trends, and the full date range
-- If it's other data, describe what's actually in the spreadsheet comprehensively
-- Provide practical insights and next steps based on the complete dataset
+How to Think:
+- Always use ALL available information: full data structure, statistics, unique values, date ranges, and sample rows
+- CRITICAL: Always check the detect_changes tool results to see what actually changed
+- Focus on the WHY behind changes: What was the user trying to accomplish?
+- Highlight key numbers: min/max values, ranges, totals, percentages, trends
+- Explain the reasoning: Why did this change happen? What does it mean?
+- Provide context: What business decision or analysis does this support?
+- Use numeric stats (min/max/mean) to make your explanation more insightful
+- Use date_range information to mention relevant time periods
+- Consider context: is this financial data, inventory data, survey responses, etc.? Phrase explanations appropriately
+- Interpret implications: What can the user do with this information?
 
-Generate explanations that are:
-- Accurate and based on ALL available data (not just samples)
-- User-friendly and conversational
-- Focused on practical value
-- Free of technical jargon
-- Comprehensive in scope"""),
-            MessagesPlaceholder(variable_name="chat_history"),
-            ("human", "{input}"),
-            MessagesPlaceholder(variable_name="agent_scratchpad")
-        ])
+How to Speak:
+- Be clear, concise, and professional
+- Focus on what the user *actually sees* in their spreadsheet
+- Do NOT mention tools, technical terms, or error messages
+- Do NOT include chain-of-thought or your reasoning steps
+- Use friendly, direct language ("Here's what changed:" / "You now have…")
+- Always explain the WHY: "This happened because..." / "The reason for this change is..."
+- Highlight key numbers: "The highest value is $X" / "You can see the trend in column Y"
+- Provide actionable insights: "This means you can..." / "You should consider..."
+- If no changes are detected, clearly state that nothing changed
+
+Output Goals:
+- Be accurate, comprehensive, and helpful
+- Provide practical value and insights
+- Keep it one well-structured paragraph unless multiple points are needed
+- Stay consistent and deterministic — same input should produce the same explanation
+- Always include: WHAT changed, WHY it changed, KEY NUMBERS, and ACTIONABLE INSIGHTS
+- Focus on decision support and business reasoning"""),
+    MessagesPlaceholder(variable_name="chat_history"),
+    ("human", "{input}"),
+    MessagesPlaceholder(variable_name="agent_scratchpad")
+])
+
         
         # Create the PROPER LangChain agent with tool calling
         self.agent = create_tool_calling_agent(
@@ -351,17 +365,30 @@ Generate explanations that are:
             
             # Prepare input for the agent
             agent_input = f"""
-            Analyze the Excel data changes for operation: {operation_type}
-            Context: {operation_context}
-            
-            Please use your tools to:
-            1. Analyze the current data structure and content
-            2. Detect what changed between before and after states
-            3. Generate an accurate, user-friendly explanation
-            4. Validate your response for accuracy
-            
-            Focus on providing helpful, accurate information about what's actually in the spreadsheet.
-            """
+You are an Explanation Agent designed to help users understand changes in spreadsheet data.
+
+Operation Type: {operation_type}
+Operation Context: {operation_context}
+
+Your task:
+1. **Analyze Data:** Inspect the BEFORE and AFTER spreadsheet states.
+2. **Detect Changes:** Identify exactly what changed (rows, columns, cell values, formulas).
+3. **Classify Change:** Determine if it was an insertion, deletion, modification, or structural change.
+4. **Explain Clearly:** Generate a concise, user-friendly explanation describing:
+   - What changed (specific cells/rows/columns)
+   - Why it might matter (if inferable from context)
+5. **Validate:** Double-check that your explanation matches the actual data difference.
+
+Guidelines:
+- **Be precise and factual** – only describe changes that actually exist in the data.
+- **Use simple, clear language** – your explanation should be understandable by non-technical users.
+- **Avoid speculation** – do not guess reasons for changes unless explicitly provided in the context.
+- **If no changes are detected**, clearly say so.
+
+Output Format:
+Return a single well-structured paragraph that summarizes the changes and their significance.
+"""
+
             
             # Execute the PROPER LangChain agent
             result = self.agent_executor.invoke({
@@ -375,7 +402,7 @@ Generate explanations that are:
             
             # Format the explanation cleanly
             formatted_output = f"""
-**Intelligent Analysis Summary**
+**Analysis Summary**
 
 {explanation}
 """
