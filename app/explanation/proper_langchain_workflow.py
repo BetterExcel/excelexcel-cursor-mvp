@@ -53,7 +53,7 @@ class DataAnalysisTool(BaseTool):
                 "null_counts": {str(k): int(v) for k, v in df.isnull().sum().to_dict().items()}
             }
             
-            # Content analysis
+            # Content analysis with comprehensive statistics
             content_info = {}
             for col in df.columns:
                 if df[col].dtype in ['int64', 'float64']:
@@ -62,18 +62,25 @@ class DataAnalysisTool(BaseTool):
                         "min": float(df[col].min()),
                         "max": float(df[col].max()),
                         "mean": float(df[col].mean()),
-                        "std": float(df[col].std())
+                        "std": float(df[col].std()),
+                        "count": int(df[col].count()),
+                        "range": float(df[col].max() - df[col].min())
                     }
                 else:
+                    # For categorical data, show more comprehensive info
+                    unique_vals = df[col].dropna().unique()
                     content_info[col] = {
                         "type": "categorical",
                         "unique_values": df[col].nunique(),
-                        "sample_values": df[col].dropna().head(3).tolist()
+                        "total_count": int(df[col].count()),
+                        "sample_values": df[col].dropna().head(5).tolist(),  # Show 5 instead of 3
+                        "all_unique_values": unique_vals.tolist() if len(unique_vals) <= 20 else unique_vals[:20].tolist()  # Show all if <= 20, otherwise first 20
                     }
             
-            # Sample data - convert to JSON-serializable format
+            # Enhanced sample data - show more rows and include statistics
             sample_data = []
-            for _, row in df.head(3).iterrows():
+            # Show first 5 rows instead of 3
+            for _, row in df.head(5).iterrows():
                 sample_row = {}
                 for col, value in row.items():
                     if pd.isna(value):
@@ -84,10 +91,44 @@ class DataAnalysisTool(BaseTool):
                         sample_row[str(col)] = str(value)
                 sample_data.append(sample_row)
             
+            # Add data summary statistics
+            data_summary = {
+                "total_rows": len(df),
+                "total_columns": len(df.columns),
+                "date_range": None,
+                "numeric_columns": [],
+                "categorical_columns": []
+            }
+            
+            # Identify column types
+            for col in df.columns:
+                if df[col].dtype in ['int64', 'float64']:
+                    data_summary["numeric_columns"].append(col)
+                else:
+                    data_summary["categorical_columns"].append(col)
+            
+            # Try to detect date range if first column looks like dates
+            if len(df) > 0:
+                first_col = df.columns[0]
+                first_val = str(df[first_col].iloc[0])
+                if any(date_indicator in first_val.lower() for date_indicator in ['date', '2023', '2024', '2025']):
+                    try:
+                        # Get first and last non-null values
+                        non_null_values = df[first_col].dropna()
+                        if len(non_null_values) > 0:
+                            data_summary["date_range"] = {
+                                "first": str(non_null_values.iloc[0]),
+                                "last": str(non_null_values.iloc[-1]),
+                                "total_days": len(non_null_values)
+                            }
+                    except:
+                        pass
+            
             return json.dumps({
                 "structure": structure_info,
                 "content": content_info,
                 "sample_data": sample_data,
+                "data_summary": data_summary,
                 "context": context
             }, indent=2)
             
@@ -240,19 +281,34 @@ Your task is to:
 3. Generate an accurate, user-friendly explanation based on the tool results
 4. Use the validate_explanation tool to check your response for accuracy
 
+IMPORTANT FOR COMPREHENSIVE DATA ANALYSIS:
+- The analyze_data tool now provides comprehensive information including:
+  * Full data structure (rows, columns, data types)
+  * Complete statistics for numeric columns (min, max, mean, std, range)
+  * All unique values for categorical columns (up to 20 values)
+  * Date range detection for time-series data
+  * Sample data from multiple rows (not just first 3)
+  * Data summary with total counts and column types
+
+- Use ALL available data information, not just sample rows
+- If you see date_range information, use it to describe the time period accurately
+- If you see numeric statistics, use min/max/mean values in your explanation
+- If you see all_unique_values, reference the complete dataset, not just samples
+
 IMPORTANT FOR USER-FRIENDLY OUTPUT:
 - Do NOT mention tools, technical details, or errors to the user
 - Focus on what the user actually sees in their spreadsheet
 - Be conversational and helpful - use "I" and "you" perspective
-- If it's stock data, talk about actual stock prices and trends
-- If it's other data, describe what's actually in the spreadsheet
-- Provide practical insights and next steps
+- If it's stock data, talk about actual stock prices, trends, and the full date range
+- If it's other data, describe what's actually in the spreadsheet comprehensively
+- Provide practical insights and next steps based on the complete dataset
 
 Generate explanations that are:
-- Accurate and based on actual data
+- Accurate and based on ALL available data (not just samples)
 - User-friendly and conversational
 - Focused on practical value
-- Free of technical jargon"""),
+- Free of technical jargon
+- Comprehensive in scope"""),
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{input}"),
             MessagesPlaceholder(variable_name="agent_scratchpad")
