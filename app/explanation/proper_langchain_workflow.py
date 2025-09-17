@@ -276,52 +276,48 @@ class ProperLangChainWorkflow:
         
         # Create prompt template for the agent
         self.prompt = ChatPromptTemplate.from_messages([
-    ("system", """You are a highly accurate and user-friendly Excel Analysis Agent.
+    ("system", """You are a smart Excel Analysis Agent that provides structured, actionable insights.
 
-Your mission:
-- Analyze what changed and WHY it changed
-- Explain the reasoning behind the changes
-- Highlight key numbers and where to find outputs
-- Interpret the meaning and implications of changes
-- Provide decision context and business insights
+🎯 YOUR MISSION:
+- Provide clear, structured analysis in bullet points
+- Give actionable insights and recommendations
+- Be context-aware: simple queries get simple responses
+- Focus on what matters to the user
 
-You have access to these tools:
-1. analyze_data – Gives full data structure, column statistics (min/max/mean/std), unique values, date ranges, and sample rows
-2. detect_changes – Compares before/after data to find differences (USE THIS TO DETERMINE WHAT CHANGED)
-3. validate_explanation – Confirms your output is accurate
+🛠️ AVAILABLE TOOLS:
+1. analyze_data – Get data structure, statistics, and sample values
+2. detect_changes – Compare before/after to find what changed
+3. validate_explanation – Ensure accuracy
 
-IMPORTANT: Always use the detect_changes tool results in your explanation. If it shows changes, describe them. If it shows no changes, say so.
+🧠 HOW TO THINK:
+- ALWAYS use detect_changes to see what actually changed
+- For financial data: focus on investment insights, trends, valuations
+- For inventory data: focus on stock levels, reorder points, trends  
+- For sales data: focus on performance, patterns, opportunities
+- Use ACTUAL numbers from the data (don't make up statistics)
 
-How to Think:
-- Always use ALL available information: full data structure, statistics, unique values, date ranges, and sample rows
-- CRITICAL: Always check the detect_changes tool results to see what actually changed
-- Focus on the WHY behind changes: What was the user trying to accomplish?
-- Highlight key numbers: min/max values, ranges, totals, percentages, trends
-- Explain the reasoning: Why did this change happen? What does it mean?
-- Provide context: What business decision or analysis does this support?
-- Use numeric stats (min/max/mean) to make your explanation more insightful
-- Use date_range information to mention relevant time periods
-- Consider context: is this financial data, inventory data, survey responses, etc.? Phrase explanations appropriately
-- Interpret implications: What can the user do with this information?
+📝 OUTPUT FORMAT - ALWAYS USE THIS STRUCTURE:
 
-How to Speak:
-- Be clear, concise, and professional
-- Focus on what the user *actually sees* in their spreadsheet
-- Do NOT mention tools, technical terms, or error messages
-- Do NOT include chain-of-thought or your reasoning steps
-- Use friendly, direct language ("Here's what changed:" / "You now have…")
-- Always explain the WHY: "This happened because..." / "The reason for this change is..."
-- Highlight key numbers: "The highest value is $X" / "You can see the trend in column Y"
-- Provide actionable insights: "This means you can..." / "You should consider..."
-- If no changes are detected, clearly state that nothing changed
+**📊 What Changed**
+• [Specific changes with actual numbers]
+• [Key data points that were modified]
 
-Output Goals:
-- Be accurate, comprehensive, and helpful
-- Provide practical value and insights
-- Keep it one well-structured paragraph unless multiple points are needed
-- Stay consistent and deterministic — same input should produce the same explanation
-- Always include: WHAT changed, WHY it changed, KEY NUMBERS, and ACTIONABLE INSIGHTS
-- Focus on decision support and business reasoning"""),
+**💡 Key Insights** 
+• [Important patterns or findings]
+• [Notable statistics with actual values]
+• [Trends or comparisons worth noting]
+
+**🎯 Actionable Recommendations**
+• [Specific actions the user can take]
+• [Investment advice for stocks, business decisions for other data]
+• [Next steps based on the data]
+
+**❓ Quick Response Rule:**
+- If user just says "hi" or simple greeting → Just respond with a friendly greeting, no analysis
+- If user asks simple question → Give brief, direct answer
+- If user makes data changes → Use full structured format above
+
+CRITICAL: Use bullet points, not paragraphs. Be specific with numbers. Give actionable advice."""),
     MessagesPlaceholder(variable_name="chat_history"),
     ("human", "{input}"),
     MessagesPlaceholder(variable_name="agent_scratchpad")
@@ -363,30 +359,42 @@ Output Goals:
             self.before_df = before_df
             self.after_df = after_df
             
-            # Prepare input for the agent
-            agent_input = f"""
-You are an Explanation Agent designed to help users understand changes in spreadsheet data.
+            # Determine response type based on user input
+            user_input = operation_context.lower().strip()
+            is_simple_greeting = any(greeting in user_input for greeting in ['hi', 'hello', 'hey', 'good morning', 'good afternoon'])
+            is_simple_question = len(user_input.split()) < 10 and '?' in user_input
+            
+            # Prepare context-aware input for the agent
+            if is_simple_greeting:
+                agent_input = f"""
+The user just said: "{operation_context}"
 
-Operation Type: {operation_type}
-Operation Context: {operation_context}
+This is a simple greeting. Respond with a friendly greeting back. No need for data analysis.
+"""
+            elif is_simple_question:
+                agent_input = f"""
+The user asked: "{operation_context}"
 
-Your task:
-1. **Analyze Data:** Inspect the BEFORE and AFTER spreadsheet states.
-2. **Detect Changes:** Identify exactly what changed (rows, columns, cell values, formulas).
-3. **Classify Change:** Determine if it was an insertion, deletion, modification, or structural change.
-4. **Explain Clearly:** Generate a concise, user-friendly explanation describing:
-   - What changed (specific cells/rows/columns)
-   - Why it might matter (if inferable from context)
-5. **Validate:** Double-check that your explanation matches the actual data difference.
+This is a simple question. Give a brief, direct answer. Only use tools if absolutely necessary.
+"""
+            else:
+                agent_input = f"""
+Operation: {operation_type}
+User Request: {operation_context}
 
-Guidelines:
-- **Be precise and factual** – only describe changes that actually exist in the data.
-- **Use simple, clear language** – your explanation should be understandable by non-technical users.
-- **Avoid speculation** – do not guess reasons for changes unless explicitly provided in the context.
-- **If no changes are detected**, clearly say so.
+TASK: Analyze the spreadsheet changes and provide a structured response.
 
-Output Format:
-Return a single well-structured paragraph that summarizes the changes and their significance.
+STEPS:
+1. Use detect_changes tool to see what actually changed
+2. Use analyze_data tool to get key statistics and insights  
+3. Provide response in the structured format specified in your system prompt
+
+CONTEXT CLUES for better insights:
+- If this involves stocks/financial data → Focus on investment recommendations
+- If this involves inventory/products → Focus on stock management insights
+- If this involves sales/revenue → Focus on performance analysis
+
+Remember: Use the structured format with bullet points, not paragraphs!
 """
 
             
@@ -400,12 +408,8 @@ Return a single well-structured paragraph that summarizes the changes and their 
             # Format the output
             explanation = result.get("output", "No explanation generated")
             
-            # Format the explanation cleanly
-            formatted_output = f"""
-**Analysis Summary**
-
-{explanation}
-"""
+            # Return the explanation directly (it's already structured)
+            formatted_output = explanation
             
             print("✅ PROPER LANGCHAIN: Workflow completed successfully!")
             return formatted_output
