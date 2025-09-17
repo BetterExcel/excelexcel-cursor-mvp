@@ -1861,35 +1861,30 @@ with st.sidebar:
             current_sheet_name = st.session_state.current_sheet
             
             # Call the agent with context and selected model
-            if not AGENT_AVAILABLE or run_agent is None:
-                st.error("❌ Agent functionality not available in this deployment")
-                return
-            
-            with st.spinner(f"🤖 AI is processing: {user_msg[:30]}..."):
-                reply = run_agent(
-                    user_msg=user_msg.strip(),
-                    workbook=working_workbook,  # Use working copy
-                    current_sheet=current_sheet_name,
-                    chat_history=chat_history,
-                    model_name=current_model
-                )
+            if AGENT_AVAILABLE and run_agent is not None:
+                with st.spinner(f"🤖 AI is processing: {user_msg[:30]}..."):
+                    reply = run_agent(
+                        user_msg=user_msg.strip(),
+                        workbook=working_workbook,  # Use working copy
+                        current_sheet=current_sheet_name,
+                        chat_history=chat_history,
+                        model_name=current_model
+                    )
                 
-                # Update the actual workbook with the AI's changes
-                st.session_state.workbook = working_workbook
+                    # Update the actual workbook with the AI's changes
+                    st.session_state.workbook = working_workbook
+                    
+                    # Ensure we're comparing the right DataFrames
+                    before_df = before_workbook.get(current_sheet_name, pd.DataFrame())
+                    after_df = working_workbook.get(current_sheet_name, pd.DataFrame())
                 
-                # Ensure we're comparing the right DataFrames
-                before_df = before_workbook.get(current_sheet_name, pd.DataFrame())
-                after_df = working_workbook.get(current_sheet_name, pd.DataFrame())
-                
-                                            # Ensure we're comparing the right DataFrames
-                
-                # Log AI operation
-                timestamp = datetime.now().strftime("%H:%M:%S")
-                st.session_state.ai_operations_log.append({
-                    'timestamp': timestamp,
-                    'operation': f"AI processed: {user_msg[:50]}...",
-                    'type': 'ai'
-                })
+                    # Log AI operation
+                    timestamp = datetime.now().strftime("%H:%M:%S")
+                    st.session_state.ai_operations_log.append({
+                        'timestamp': timestamp,
+                        'operation': f"AI processed: {user_msg[:50]}...",
+                        'type': 'ai'
+                    })
                 
                 # Generate intelligent explanation using LangChain + LangGraph (if enabled)
                 if st.session_state.enable_explanations:
@@ -1969,6 +1964,9 @@ with st.sidebar:
             st.error(f"AI processing failed: {error_msg}")
             # Skip the rest of the processing for this message
             pass
+        
+            else:
+                st.error("❌ Agent functionality not available in this deployment")
         
         # Rerun to show the updated chat and spreadsheet
         st.rerun()
