@@ -35,7 +35,7 @@ except ImportError as e:
 # from app.explanation import ExplanationWorkflow  # FALLBACK REMOVED - CLEAN PIPELINE ONLY
 from app.explanation.intelligent_workflow import IntelligentExplanationWorkflow
 from app.explanation.proper_langchain_workflow import create_proper_langchain_workflow
-from app.explanation.local_llm import get_local_llm, check_local_llm_availability
+# Local LLM not used - we use OpenAI via proper_langchain_workflow
 import app.charts as charts
 
 st.set_page_config(page_title="Excel‑Cursor MVP - Enhanced", layout="wide", initial_sidebar_state="expanded")
@@ -1068,28 +1068,9 @@ with st.sidebar:
         )
         
         if st.session_state.enable_explanations:
-            # Check LLM availability
-            llm_info = check_local_llm_availability()
-            
-            if llm_info['is_available']:
-                st.success(f"✅ Intelligent explanations enabled using {llm_info['provider_type']}")
-                st.info(f"🤖 Using local LLM: {llm_info['model_name']}")
-            else:
-                st.warning("⚠️ Using basic explanations (no local LLM available)")
-                st.info("💡 Install Ollama or other local LLM for intelligent explanations")
-            
-            # Show available providers
-            with st.expander("🔧 Local LLM Options", expanded=False):
-                providers = llm_info['available_providers']
-                for provider, available in providers.items():
-                    status = "✅ Available" if available else "❌ Not Available"
-                    st.text(f"{provider.title()}: {status}")
-                
-                if not any(providers.values()):
-                    st.info("💡 To enable intelligent explanations, install one of:")
-                    st.text("• pip install langchain-community[ollama]")
-                    st.text("• pip install langchain-community[localai]")
-                    st.text("• pip install transformers torch")
+            # Using OpenAI via LangChain - always available if API key is set
+            st.success("✅ Intelligent explanations enabled using OpenAI GPT-4-turbo")
+            st.info("🤖 Structured analysis with investment recommendations")
         else:
             st.info("ℹ️ Explanations disabled - Only basic AI responses will be shown")
     
@@ -1886,16 +1867,10 @@ with st.sidebar:
                         'type': 'ai'
                     })
                 
-                # Generate intelligent explanation using LangChain + LangGraph (if enabled)
-                if st.session_state.enable_explanations:
-                    print("🔧 CLEAN PIPELINE: Starting explanation generation...")
-                    try:
-                        # Get local LLM for intelligent explanations
-                        print("🔧 CLEAN PIPELINE: Checking for local LLM...")
-                        local_llm = get_local_llm()
-                        print(f"🔧 CLEAN PIPELINE: Local LLM status: {local_llm is not None}")
-                        
-                        if local_llm:
+                    # Generate intelligent explanation using LangChain + OpenAI (if enabled)
+                    if st.session_state.enable_explanations:
+                        print("🔧 CLEAN PIPELINE: Starting explanation generation...")
+                        try:
                             # Use PROPER LangChain workflow with OpenAI for intelligent processing
                             print("🚀 PROPER LANGCHAIN: Using ProperLangChainWorkflow with OpenAI for intelligent processing")
                             print("🔧 PROPER LANGCHAIN: Creating proper LangChain workflow instance...")
@@ -1936,16 +1911,12 @@ with st.sidebar:
                             full_response = f"{reply}\n\n---\n\n{explanation}"
                             print("🔧 CLEAN PIPELINE: Explanation generation completed successfully")
                             
-                        else:
-                            # No LLM available - skip explanation
-                            print("⚠️ CLEAN PIPELINE: No local LLM available - skipping explanation")
-                            full_response = reply
                             
-                    except Exception as e:
-                        # If explanation fails, just use the AI response
-                        print(f"🚨 CLEAN PIPELINE: Explanation generation failed: {str(e)}")
-                        st.warning(f"⚠️ Explanation generation failed: {str(e)[:100]}...")
-                        full_response = reply
+                        except Exception as e:
+                            # If explanation fails, just use the AI response
+                            print(f"🚨 CLEAN PIPELINE: Explanation generation failed: {str(e)}")
+                            st.warning(f"⚠️ Explanation generation failed: {str(e)[:100]}...")
+                            full_response = reply
                 else:
                     # Explanations disabled, use only AI response
                     full_response = reply
