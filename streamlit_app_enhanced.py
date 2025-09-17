@@ -1917,9 +1917,9 @@ with st.sidebar:
                             print(f"🚨 CLEAN PIPELINE: Explanation generation failed: {str(e)}")
                             st.warning(f"⚠️ Explanation generation failed: {str(e)[:100]}...")
                             full_response = reply
-                else:
-                    # Explanations disabled, use only AI response
-                    full_response = reply
+                    else:
+                        # Explanations disabled, use only AI response
+                        full_response = reply
                 
                 # Add combined response to history
                 st.session_state.chat_histories[st.session_state.current_sheet].append({
