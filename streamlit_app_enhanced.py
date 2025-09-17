@@ -1955,6 +1955,8 @@ with st.sidebar:
                     "role": "assistant",
                     "content": full_response
                 })
+            else:
+                st.error("❌ Agent functionality not available in this deployment")
                 
         except Exception as e:
             error_msg = str(e)
@@ -1964,9 +1966,6 @@ with st.sidebar:
             st.error(f"AI processing failed: {error_msg}")
             # Skip the rest of the processing for this message
             pass
-        
-            else:
-                st.error("❌ Agent functionality not available in this deployment")
         
         # Rerun to show the updated chat and spreadsheet
         st.rerun()
