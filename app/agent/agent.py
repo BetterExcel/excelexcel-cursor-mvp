@@ -6,18 +6,15 @@ from openai import OpenAI
 
 from app.agent import tools as tool_impl
 from app.services.workbook import list_sheets
-
-# Load environment variables
 from dotenv import load_dotenv
+
 load_dotenv()
 
-# Initialize OpenAI client with API key from environment and timeout
 client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY"),
-    timeout=30.0  # 30 second timeout
+    timeout=30.0
 )
 
-# Preferred models to try in order (prioritize accessible models)
 PREFERRED_MODELS = [
     "gpt-4-turbo-2024-04-09",  # Known to work
     "gpt-4-turbo",
@@ -34,22 +31,18 @@ def probe_models(candidates: List[str] | None = None, timeout_sec: float = 10.0)
     """Try a quick minimal chat call on candidate models and return which work.
     Returns a dict: { 'working': [models], 'failed': {model: error_str} }
     """
-    import time
     models = candidates or PREFERRED_MODELS
     working: List[str] = []
     failed: Dict[str, str] = {}
     for m in models:
         try:
-            # Different parameters for different model types
             if m.startswith("o1"):
-                # o1 models use max_completion_tokens and no temperature
                 resp = client.chat.completions.create(
                     model=m,
                     messages=[{"role": "user", "content": "ping"}],
                     max_completion_tokens=10,
                 )
             elif m.startswith("o3"):
-                # o3 models use max_completion_tokens
                 resp = client.chat.completions.create(
                     model=m,
                     messages=[{"role": "user", "content": "ping"}],
@@ -57,7 +50,6 @@ def probe_models(candidates: List[str] | None = None, timeout_sec: float = 10.0)
                     temperature=0.0,
                 )
             else:
-                # Regular models use max_tokens
                 resp = client.chat.completions.create(
                     model=m,
                     messages=[{"role": "user", "content": "ping"}],
@@ -72,15 +64,15 @@ def probe_models(candidates: List[str] | None = None, timeout_sec: float = 10.0)
 
 
 def pick_default_model() -> str:
-    """Pick a default model based on env or probing results."""
+    """
+    Pick a default model based on env or probing results.
+    """
     env_model = os.getenv("OPENAI_CHAT_MODEL") or os.getenv("OPENAI_MODEL")
     if env_model:
         return env_model
-    # Probe and return first working, else last fallback
     result = probe_models()
     if result["working"]:
         return result["working"][0]
-    # Final fallback – use known working model
     return "gpt-4-turbo-2024-04-09"
 
 
@@ -88,11 +80,11 @@ SYSTEM_PROMPT = (
     "You are an advanced Excel assistant for a web spreadsheet application. "
     "You have detailed information about the current active sheet including its structure, data types, and content. "
     "Use this context to provide informed recommendations and perform operations intelligently. "
-    
+
     "CRITICAL: YOU CAN AND SHOULD DIRECTLY MODIFY THE SPREADSHEET DATA using the provided tools. "
     "DO NOT give manual instructions or tell users to do things themselves. "
     "Instead, USE THE TOOLS to perform the actual operations. "
-    
+
     "IMPORTANT GUIDELINES: "
     "• ALWAYS use the provided tools to perform actions rather than giving manual instructions "
     "• When asked to create data, generate it yourself using set_cell or create_csv_file tools "
@@ -108,13 +100,13 @@ SYSTEM_PROMPT = (
     "• If an operation fails, explain why and suggest alternatives "
     "• Use the sheet context to suggest relevant operations (e.g., if you see numeric data, suggest calculations) "
     "• When analyzing data, reference the actual column names and data types you can see "
-    
+
     "EXAMPLES OF CORRECT BEHAVIOR: "
     "• User: 'Create stock data for AAPL' → YOU: Use set_cell or create_csv_file to actually create the data "
     "• User: 'Add a formula to sum column A' → YOU: Use apply_formula tool to add =SUM(A:A) "
     "• User: 'Sort by price' → YOU: Use sort_sheet tool immediately "
     "• User: 'Clear the sheet' → YOU: Use tools to clear or reset data "
-    
+
     "DO NOT SAY: 'You can do this by...' or 'Follow these steps...' "
     "INSTEAD DO: Actually perform the operation using the available tools. "
 )
@@ -318,31 +310,31 @@ def get_sheet_context(df: pd.DataFrame, sheet_name: str) -> str:
     """Generate detailed context about the active sheet for the LLM."""
     if df.empty:
         return f"Sheet '{sheet_name}' is empty (no data)."
-    
+
     context_parts = []
-    
+
     # Basic info
     context_parts.append(f"Active Sheet: '{sheet_name}'")
     context_parts.append(f"Dimensions: {len(df)} rows × {len(df.columns)} columns")
     context_parts.append(f"Columns: {', '.join(df.columns.tolist())}")
-    
+
     # Data types and sample content
     context_parts.append("\nColumn Details:")
     for col in df.columns:
         non_null_count = df[col].count()
         null_count = len(df) - non_null_count
         dtype = df[col].dtype
-        
+
         # Get sample values (first 3 non-null)
         sample_values = df[col].dropna().head(3).tolist()
         sample_str = ", ".join([str(v) for v in sample_values]) if sample_values else "no data"
-        
+
         context_parts.append(f"  • {col}: {dtype} ({non_null_count} values, {null_count} null) - Sample: {sample_str}")
-    
+
     # Data summary
     if len(df) > 0:
         context_parts.append(f"\nData Range: Row 1-{len(df)} (Excel-style numbering)")
-        
+
         # Numeric columns summary
         numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
         if numeric_cols:
@@ -351,13 +343,13 @@ def get_sheet_context(df: pd.DataFrame, sheet_name: str) -> str:
                 series = pd.to_numeric(df[col], errors='coerce').dropna()
                 if len(series) > 0:
                     context_parts.append(f"  • {col}: min={series.min():.2f}, max={series.max():.2f}, mean={series.mean():.2f}")
-    
+
     # Recent changes or patterns
     non_empty_rows = df.dropna(how='all')
     if len(non_empty_rows) != len(df):
         empty_rows = len(df) - len(non_empty_rows)
         context_parts.append(f"\nNote: {empty_rows} empty rows detected")
-    
+
     # Add complete data context for smaller datasets (up to 50 rows)
     if len(df) <= 50 and not df.empty:
         context_parts.append(f"\n--- COMPLETE DATASET (for AI reference) ---")
@@ -367,7 +359,7 @@ def get_sheet_context(df: pd.DataFrame, sheet_name: str) -> str:
         context_parts.append(f"\n--- SAMPLE DATA (first 10 rows for AI reference) ---")
         context_parts.append(df.head(10).to_string(index=False))
         context_parts.append("--- END SAMPLE DATA ---")
-    
+
     return "\n".join(context_parts)
 
 
@@ -379,7 +371,7 @@ def run_agent(user_msg: str, workbook: Dict[str, pd.DataFrame], current_sheet: s
     # Get detailed context about the current sheet
     current_df = workbook.get(current_sheet, pd.DataFrame())
     sheet_context = get_sheet_context(current_df, current_sheet)
-    
+
     # Start with system messages
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -444,7 +436,7 @@ def run_agent(user_msg: str, workbook: Dict[str, pd.DataFrame], current_sheet: s
                     raise e
             else:
                 raise e
-            
+
         choice = resp.choices[0]
         msg = choice.message
 
@@ -479,11 +471,11 @@ def run_agent(user_msg: str, workbook: Dict[str, pd.DataFrame], current_sheet: s
                         "content": out,
                     })
                     continue
-                    
+
                 # default sheet to current if not provided
                 if "sheet" in args and not args["sheet"]:
                     args["sheet"] = current_sheet
-                    
+
                 try:
                     if name == "set_cell":
                         out = tool_impl.tool_set_cell(workbook, args.get("sheet", current_sheet), args["cell"], str(args["value"]))
@@ -515,7 +507,7 @@ def run_agent(user_msg: str, workbook: Dict[str, pd.DataFrame], current_sheet: s
                         out = tool_impl.tool_generate_sample_data(workbook, args.get("sheet", current_sheet), args["rows"], args["columns"], args["context"])
                     else:
                         out = f"Unknown tool {name}"
-                        
+
                 except Exception as e:
                     out = f"Error executing {name}: {str(e)}"
                 messages.append({
