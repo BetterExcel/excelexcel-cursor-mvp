@@ -155,7 +155,7 @@ with form_cols[3]:
 st.subheader(f"Sheet: {st.session_state.current_sheet}")
 base_df = get_sheet(st.session_state.workbook, st.session_state.current_sheet)
 show_df = st.session_state.get("filtered_df", base_df)
-edited = st.data_editor(show_df, num_rows="dynamic", use_container_width=True)
+edited = st.data_editor(show_df, num_rows="dynamic", width='stretch')
 # If user edited filtered view, don't overwrite base directly; here we overwrite only if no filter
 if show_df is base_df and not edited.equals(base_df):
     set_sheet(st.session_state.workbook, st.session_state.current_sheet, edited)

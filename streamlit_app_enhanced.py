@@ -939,7 +939,7 @@ display_df.index = range(1, len(display_df) + 1)  # Start from 1 instead of 0
 edited = st.data_editor(
     display_df, 
     num_rows="dynamic", 
-    use_container_width=True,
+    width='stretch',
     key="main_editor",
     hide_index=False,
     column_config=create_column_config(show_df)
@@ -1036,7 +1036,7 @@ if st.session_state.get("show_stats", False):
                         from app.charts import quick_stats_chart
                         fig = quick_stats_chart(base_df, stats_col)
                         if fig:
-                            st.plotly_chart(fig, use_container_width=True)
+                            st.plotly_chart(fig, width='stretch')
                     except ImportError:
                         st.info("📊 Advanced stats charts require plotly")
         else:

@@ -296,7 +296,7 @@ class ProperLangChainWorkflow:
 - For sales data: focus on performance, patterns, opportunities
 - Use ACTUAL numbers from the data (don't make up statistics)
 
-📝 OUTPUT FORMAT - ALWAYS USE THIS STRUCTURE:
+📝 OUTPUT FORMAT -  ONE POSSIBLE STRUCTURE(YOU CAN CHOOSE TO USE THIS OR NOT):
 
 **📊 What Changed**
 • [Specific changes with actual numbers]

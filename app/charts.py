@@ -194,7 +194,7 @@ def display_chart_builder(df: pd.DataFrame):
             with st.spinner("🔄 Creating chart..."):
                 fig = create_chart(df, chart_type, x_col, y_cols, title, width, height)
                 if fig:
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width='stretch')
                     
                     # Chart export options
                     st.markdown("### 💾 Export Options")
