@@ -24,7 +24,14 @@ from app.services.workbook import (
     ensure_sheet,
 )
 from app.ui.formula import evaluate_formula
-from app.agent.agent import run_agent, probe_models
+try:
+    from app.agent.agent import run_agent, probe_models
+    AGENT_AVAILABLE = True
+except ImportError as e:
+    print(f"⚠️ Agent not available: {e}")
+    run_agent = None
+    probe_models = None
+    AGENT_AVAILABLE = False
 # from app.explanation import ExplanationWorkflow  # FALLBACK REMOVED - CLEAN PIPELINE ONLY
 from app.explanation.intelligent_workflow import IntelligentExplanationWorkflow
 from app.explanation.proper_langchain_workflow import create_proper_langchain_workflow
@@ -1690,10 +1697,13 @@ with st.sidebar:
         col1, col2 = st.columns([1, 1])
         with col1:
             if st.button("🔍 Test Models", help="Test which models work with your API key"):
-                with st.spinner("Probing models..."):
-                    st.session_state.model_probe = probe_models()
-                    if st.session_state.model_probe.get("working"):
-                        st.session_state.chat_model = st.session_state.model_probe["working"][0]
+                if not AGENT_AVAILABLE or probe_models is None:
+                    st.error("❌ Agent functionality not available in this deployment")
+                else:
+                    with st.spinner("Probing models..."):
+                        st.session_state.model_probe = probe_models()
+                        if st.session_state.model_probe.get("working"):
+                            st.session_state.chat_model = st.session_state.model_probe["working"][0]
         
         probe = st.session_state.model_probe
         if probe:
@@ -1851,6 +1861,10 @@ with st.sidebar:
             current_sheet_name = st.session_state.current_sheet
             
             # Call the agent with context and selected model
+            if not AGENT_AVAILABLE or run_agent is None:
+                st.error("❌ Agent functionality not available in this deployment")
+                return
+            
             with st.spinner(f"🤖 AI is processing: {user_msg[:30]}..."):
                 reply = run_agent(
                     user_msg=user_msg.strip(),
